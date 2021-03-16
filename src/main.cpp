@@ -69,6 +69,7 @@ int main()
     const Stencil s4(-2,3);                 // stencil for 4th-order CDS
     dlab.allocate(s2, f.getIndexRange());   // allocate memory
     dlab.loadData(MIndex(0), field_f);      // load data w/ periodic BCs
+    // define function which will return data lab
 
 
 
@@ -82,8 +83,9 @@ int main()
     // loop through time 
     for (double t = 0.0; t < time; t += dt) {
         // 1. compute Laplacian for given time step & store in field
+        Laplacian(dlab, f);
         // 2. exchange results between field & dlab for next step
-        ;
+
     }
 
 

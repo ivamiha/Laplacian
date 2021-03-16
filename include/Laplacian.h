@@ -8,6 +8,7 @@
 #define LAPLACIAN_HPP 
 
 // definition: perform Laplacian discretization on input cell values
-void Laplacian(); 
+template <typename T, typename U> 
+void Laplacian(T &dlab, U &field);
 
 #endif // LAPLACIAN_HPP
