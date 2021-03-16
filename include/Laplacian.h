@@ -4,4 +4,10 @@
 // Description: Laplacian compute kernel specifications
 // Copyright 2021 ETH Zurich. All Rights Reserved.
 
+#ifndef LAPLACIAN_HPP
+#define LAPLACIAN_HPP 
 
+// definition: perform Laplacian discretization on input cell values
+void Laplacian(); 
+
+#endif // LAPLACIAN_HPP

@@ -4,3 +4,6 @@
 // Description: Laplacian compute kernel
 // Copyright 2021 ETH Zurich. All Rights Reserved.
 
+void Laplacian() {
+    // for now leave function empty & focus on linking
+}
