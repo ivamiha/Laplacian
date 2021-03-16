@@ -1,0 +1,3 @@
+[submodule "CubismNova"]
+	path = CubismNova
+	url = https://github.com/cselab/CubismNova.git
