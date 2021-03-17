@@ -60,15 +60,16 @@ int main()
     IRange element_domain(elements);    // generate element domain
     Field f(element_domain);            // scalar field for storage
     Field f_new(element_domain);        // scalar field for new solution 
+    
+    // TODO: pass DataLab & test once ghost cell loader implemented
     // define function which will return scalar field
-    auto field_f = [&](const MIndex &) -> Field & { return f; };
-
+    //auto field_f = [&](const MIndex &) -> Field & { return f; };
     // generate DataLab object for easy & efficient ghost cell treatment
-    DataLab dlab;
-    const Stencil s2(-1,2);                 // stencil for 2nd-order CDS
-    const Stencil s4(-2,3);                 // stencil for 4th-order CDS
-    dlab.allocate(s2, f.getIndexRange());   // allocate memory
-    dlab.loadData(MIndex(0), field_f);      // load data w/ periodic BCs
+    //DataLab dlab;
+    //const Stencil s2(-1,2);                 // 2nd-order CDS stencil
+    //const Stencil s4(-2,3);                 // 4th-order CDS stencil
+    //dlab.allocate(s2, f.getIndexRange());   // allocate memory
+    //dlab.loadData(MIndex(0), field_f);      // load data w/ periodic BCs
     // define function which will return data lab
 
 
@@ -83,7 +84,7 @@ int main()
     // loop through time 
     for (double t = 0.0; t < time; t += dt) {
         // 1. compute Laplacian for given time step & store in field
-        Laplacian(dlab, f);
+        Laplacian(f,f_new); 
         // 2. advance the results (or perhaps do this in Laplacian?)
         // 3. exchange results between field & dlab for next step
 
