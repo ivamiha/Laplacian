@@ -84,7 +84,8 @@ int main()
     for (double t = 0.0; t < time; t += dt) {
         // 1. compute Laplacian for given time step & store in field
         Laplacian(dlab, f);
-        // 2. exchange results between field & dlab for next step
+        // 2. advance the results (or perhaps do this in Laplacian?)
+        // 3. exchange results between field & dlab for next step
 
     }
 

@@ -40,11 +40,7 @@ build src/25a6634@@Laplacian@exe/main.cpp.o: cpp_COMPILER ../src/main.cpp
  DEPFILE = src/25a6634@@Laplacian@exe/main.cpp.o.d
  ARGS = -Isrc/25a6634@@Laplacian@exe -Isrc -I../src -I../CubismNova/include/ -Iinclude -I../include -fdiagnostics-color=always -pipe -D_FILE_OFFSET_BITS=64 -Wall -Winvalid-pch -Wnon-virtual-dtor -Wextra -Wpedantic -std=c++14 -g
 
-build src/25a6634@@Laplacian@exe/Laplacian.cpp.o: cpp_COMPILER ../src/Laplacian.cpp
- DEPFILE = src/25a6634@@Laplacian@exe/Laplacian.cpp.o.d
- ARGS = -Isrc/25a6634@@Laplacian@exe -Isrc -I../src -I../CubismNova/include/ -Iinclude -I../include -fdiagnostics-color=always -pipe -D_FILE_OFFSET_BITS=64 -Wall -Winvalid-pch -Wnon-virtual-dtor -Wextra -Wpedantic -std=c++14 -g
-
-build src/Laplacian: cpp_LINKER src/25a6634@@Laplacian@exe/main.cpp.o src/25a6634@@Laplacian@exe/Laplacian.cpp.o
+build src/Laplacian: cpp_LINKER src/25a6634@@Laplacian@exe/main.cpp.o
  LINK_ARGS = -Wl,--as-needed -Wl,--no-undefined
 
 # Test rules

@@ -1,4 +1,4 @@
-src = ['main.cpp', 'Laplacian.cpp']
+src = ['main.cpp']
 
 executable('Laplacian', 
   sources : src, 

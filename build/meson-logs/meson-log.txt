@@ -1,6 +1,6 @@
-Build started at 2021-03-16T09:59:41.368208
+Build started at 2021-03-17T10:07:53.250376
 Main binary: /usr/bin/python3
-Build Options: 
+Build Options: -Dbackend=ninja
 Python system: Linux
 The Meson build system
 Version: 0.53.2
@@ -9,34 +9,8 @@ Build dir: /home/ivan/Documents/masters/X-semester-project/coding/Laplacian/buil
 Build type: native build
 Project name: Laplacian
 Project version: 0.1
-No CXXFLAGS in the environment, not changing global flags.
-No LDFLAGS in the environment, not changing global flags.
-No CPPFLAGS in the environment, not changing global flags.
-Sanity testing C++ compiler: c++
-Is cross compiler: False.
-Sanity check compiler command line: c++ /home/ivan/Documents/masters/X-semester-project/coding/Laplacian/build/meson-private/sanitycheckcpp.cc -o /home/ivan/Documents/masters/X-semester-project/coding/Laplacian/build/meson-private/sanitycheckcpp.exe -pipe -D_FILE_OFFSET_BITS=64
-Sanity check compile stdout:
-
------
-Sanity check compile stderr:
-
------
-Running test binary command: /home/ivan/Documents/masters/X-semester-project/coding/Laplacian/build/meson-private/sanitycheckcpp.exe
 C++ compiler for the build machine: c++ (gcc 9.3.0 "c++ (Ubuntu 9.3.0-17ubuntu1~20.04) 9.3.0")
 C++ linker for the build machine: c++ ld.bfd 2.34
-No CXXFLAGS in the environment, not changing global flags.
-No LDFLAGS in the environment, not changing global flags.
-No CPPFLAGS in the environment, not changing global flags.
-Sanity testing C++ compiler: c++
-Is cross compiler: False.
-Sanity check compiler command line: c++ /home/ivan/Documents/masters/X-semester-project/coding/Laplacian/build/meson-private/sanitycheckcpp.cc -o /home/ivan/Documents/masters/X-semester-project/coding/Laplacian/build/meson-private/sanitycheckcpp.exe -pipe -D_FILE_OFFSET_BITS=64
-Sanity check compile stdout:
-
------
-Sanity check compile stderr:
-
------
-Running test binary command: /home/ivan/Documents/masters/X-semester-project/coding/Laplacian/build/meson-private/sanitycheckcpp.exe
 C++ compiler for the host machine: c++ (gcc 9.3.0 "c++ (Ubuntu 9.3.0-17ubuntu1~20.04) 9.3.0")
 C++ linker for the host machine: c++ ld.bfd 2.34
 Build machine cpu family: x86_64
@@ -49,8 +23,8 @@ Build targets in project: 1
 
 Found ninja-1.10.0 at /usr/bin/ninja
 Running compile:
-Working directory:  /tmp/tmpyp2rz58p
-Command line:  c++ /tmp/tmpyp2rz58p/testfile.cpp -o /tmp/tmpyp2rz58p/output.obj -pipe -D_FILE_OFFSET_BITS=64 -c -std=c++14 
+Working directory:  /tmp/tmpgks4yrbw
+Command line:  c++ /tmp/tmpgks4yrbw/testfile.cpp -o /tmp/tmpgks4yrbw/output.obj -pipe -D_FILE_OFFSET_BITS=64 -c -std=c++14 
 
 Code:
  int i = static_cast<int>(0);
@@ -60,8 +34,8 @@ Compiler stderr:
  
 Compiler accepts -std=c++14: YES
 Running compile:
-Working directory:  /home/ivan/Documents/masters/X-semester-project/coding/Laplacian/build/meson-private/tmp1gcdd7nc
-Command line:  c++ /home/ivan/Documents/masters/X-semester-project/coding/Laplacian/build/meson-private/tmp1gcdd7nc/testfile.cpp -o /home/ivan/Documents/masters/X-semester-project/coding/Laplacian/build/meson-private/tmp1gcdd7nc/output.obj -pipe -c -D_FILE_OFFSET_BITS=64 -O0 -fpermissive --print-search-dirs 
+Working directory:  /home/ivan/Documents/masters/X-semester-project/coding/Laplacian/build/meson-private/tmpu7l1me_4
+Command line:  c++ /home/ivan/Documents/masters/X-semester-project/coding/Laplacian/build/meson-private/tmpu7l1me_4/testfile.cpp -o /home/ivan/Documents/masters/X-semester-project/coding/Laplacian/build/meson-private/tmpu7l1me_4/output.obj -pipe -c -D_FILE_OFFSET_BITS=64 -O0 -fpermissive --print-search-dirs 
 
 Code:
  
