@@ -79,15 +79,20 @@ int main()
     
     // timestep based on 2nd-order CDS stability conditions
     // TODO: incorporate also dt calculation for 4th-order stability
-    double dt = h*h / (2*D); 
+    double dt = (h*h) / (2*D);
+    double fac = (D*dt) / (h*h); 
 
     // loop through time 
     for (double t = 0.0; t < time; t += dt) {
-        // 1. compute Laplacian for given time step & store in field
-        Laplacian(f,f_new); 
-        // 2. advance the results (or perhaps do this in Laplacian?)
-        // 3. exchange results between field & dlab for next step
-
+        // 1. compute Laplacian & store in f_new 
+        Laplacian(f,f_new);     // stencil operation
+        f_new *= fac;           // point-wise operation
+        // 2. advance the current solution 
+        f += f_new;
+        // 3. reset f_new for next timestep
+        for (auto &c : f_new) {
+            c = 0.0;
+        }
     }
 
 
