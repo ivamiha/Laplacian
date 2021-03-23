@@ -1,8 +1,0 @@
-[
-  {
-    "directory": "/home/ivan/Documents/masters/X-semester-project/coding/Laplacian/build",
-    "command": "c++ -Isrc/25a6634@@Laplacian@exe -Isrc -I../src -I../CubismNova/include/ -Iinclude -I../include -fdiagnostics-color=always -pipe -D_FILE_OFFSET_BITS=64 -Wall -Winvalid-pch -Wnon-virtual-dtor -Wextra -Wpedantic -std=c++14 -g -MD -MQ 'src/25a6634@@Laplacian@exe/main.cpp.o' -MF 'src/25a6634@@Laplacian@exe/main.cpp.o.d' -o 'src/25a6634@@Laplacian@exe/main.cpp.o' -c ../src/main.cpp",
-    "file": "../src/main.cpp",
-    "output": "src/25a6634@@Laplacian@exe/main.cpp.o"
-  }
-]
