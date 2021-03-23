@@ -4,8 +4,8 @@
 // Description: 2nd-order flat-indexing Laplacian kernel specifications
 // Copyright 2021 ETH Zurich. All Rights Reserved.
 
-#ifndef LAPLACIAN2f_H
-#define LAPLACIAN2f_H 
+#ifndef LAPLACIAN2F_H
+#define LAPLACIAN2F_H 
 
 using namespace Cubism;
 
@@ -33,9 +33,9 @@ void Laplacian2f(DataLab &sol,
     const MIndex iz{0, 0, 1};
     // loop over all elements in passed-in Field block  
     for (auto &i : tmp.getIndexRange()) {
-        tmp[i] =   sol[i + ix] + sol[i - ix] + sol[i + iy] + sol[i - iy];
+        tmp[i] =   sol[i + ix] + sol[i - ix] + sol[i + iy] + sol[i - iy]
                  + sol[i + iz] + sol[i - iz] - 6*sol[i];         
     }
 }
 
-#endif // LAPLACIAN2f_H
+#endif // LAPLACIAN2F_H

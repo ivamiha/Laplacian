@@ -4,8 +4,8 @@
 // Description: 2nd-order spatial-indexing Laplacian kernel specifications
 // Copyright 2021 ETH Zurich. All Rights Reserved.
 
-#ifndef LAPLACIAN2s_H
-#define LAPLACIAN2s_H 
+#ifndef LAPLACIAN2S_H
+#define LAPLACIAN2S_H 
 
 using namespace Cubism;
 
@@ -42,4 +42,4 @@ void Laplacian2s(DataLab &sol,
     }
 }
 
-#endif // LAPLACIAN2s_H
+#endif // LAPLACIAN2S_H

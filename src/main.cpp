@@ -13,6 +13,8 @@
 
 #include "Laplacian2f.h"
 #include "Laplacian2s.h"
+#include "Laplacian4f.h"
+#include "Laplacian4s.h"
 #include <iostream>
 
 using namespace Cubism;
