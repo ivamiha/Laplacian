@@ -9,5 +9,6 @@
 
 int main() 
 {
-    printf("Hey at least it compiles.\n"); 
+    printf("Hey at least it compiles.\n");
+    printf("Testing...\n"); 
 }
