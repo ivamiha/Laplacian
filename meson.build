@@ -1,3 +1,9 @@
+# File       : meson.build
+# Created    : Wed Mar 24 2021  3:30:36 pm CET (+0100)
+# Author     : Ivan Mihajlovic Milin
+# Description: Main meson build definition
+# Copyright 2021 ETH Zurich. All Rights Reserved.
+
 project('Laplacian', ['cpp'], 
   version : '0.0.0',
   meson_version: '>=0.57.0',
@@ -5,8 +11,13 @@ project('Laplacian', ['cpp'],
   license: 'BSD-2-Clause',
 )
 
+# compiler object
+cpp = meson.get_compiler('cpp')
+
+# mpi dependency for CubismNova
 mpi_dep = dependency('mpi', language: 'cpp', required: true)
 
+# CubismNova dependency 
 cubismnova_dep = dependency('CubismNova',
   default_options: ['CUBISM_TESTS=false'],
   fallback: ['CubismNova', 'cubismnova_dep'], 
@@ -16,5 +27,6 @@ cubismnova_dep = dependency('CubismNova',
 cubismnova_sub = subproject('CubismNova')
 cubismnova_dep = cubismnova_sub.get_variable('cubismnova_dep')
 
+# project sources 
 subdir('include')
 subdir('src')
