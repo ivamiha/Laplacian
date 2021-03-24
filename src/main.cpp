@@ -9,39 +9,40 @@
 #include "Cubism/Mesh/StructuredUniform.h"
 #include "Cubism/Block/Field.h"
 #include "Cubism/Common.h"
+#include "Cubism/Util/Timer.h"
 
 #include "Laplacian2f.h"
 #include "Laplacian2s.h"
 #include "Laplacian4f.h"
 #include "Laplacian4s.h"
 
-#include <iostream>
-#include <assert.h>
+#include <cstdio>
 
 // enable 4th-order CDS, default 2nd-order CDS 
-#define _ACCUR_ 
-// enable benchmarking, default no benchmarking
-// #define _BENCH_  
+//#define USE_ACCUR 
+// enable flat indexing, default spatial indexing
+#define USE_FLAT  
 
 using namespace Cubism;
+using Util::Timer; 
 
-int main() 
+int main(int argc, char *argv[]) 
 {    
     // welcome & inform user what program configuration is running
     printf("\n------------------------------------------------------------\n");
     printf("T E S T   L A P L A C I A N   C O M P U T E   K E R N E L\n\n");
     printf("Optimized Laplacian compute kernel utilizing CubismNova\n");
     printf("============================================================\n");
-#ifdef _BENCH_
-    printf("Benchmarking "); 
+#ifdef USE_ACCUR
+    printf("Benchmarking 4th-order CDS implementation with "); 
 #else
-    printf("Running "); 
-#endif /* BENCH */
-#ifdef _ACCUR_ 
-    printf("4th-order CDS implementation.\n"); 
+    printf("Benchmarking 2nd-order CDS implementation with "); 
+#endif /* USE_ACCUR */
+#ifdef USE_FLAT 
+    printf("flat indexing.\n"); 
 #else
-    printf("2nd-order CDS implementation.\n"); 
-#endif /* ACCUR */   
+    printf("spatial indexing\n"); 
+#endif /* USE_FLAT */   
     
     // initialize simulation variables to be used throughout
     double time = 50.0;     // simulation duration [s]
@@ -57,12 +58,12 @@ int main()
     using DataLab = Block::DataLab<typename FieldType::FieldType>; 
     using Stencil = typename DataLab::StencilType;
 
-    // define number of blocks & cells per block
-    const MIndex nblocks(8);                        // 8^3 = 512 blocks
-    const MIndex block_cells(16);                   // 16^3 = 4096 cells/block 
+    // define number of blocks & cells per block, input in each dimension   
+    const MIndex nblocks((argc == 2) ? std::atoi(argv[1]) : 8);                        
+    const MIndex block_cells(25);                   
     // map the blocks & cells on domain [0,1]^3 [m] 
     SGrid grid(nblocks, block_cells);               // solution storage
-    SGrid temp(nblocks, block_cells);               // temporary storage
+    SGrid tmp(nblocks, block_cells);                // temporary storage
     const Point h = grid.getMesh().getCellSize(0);  // grid spacing [m]
 
     // function for writing ICs utilizing input field (block) within grid     
@@ -83,7 +84,7 @@ int main()
     }
 
     // define numerical parameters based on chosen discretization
-#ifdef _ACCUR_                      
+#ifdef USE_ACCUR                      
     const Stencil s(-2, 3, true);               // 4th-order CDS stencil 
     double dt = (h[0] * h[0]) / (2 * D);        // TODO: 4th-order stability
     double fac = (D * dt) / (12 * h[0] * h[0]); // 4th-order Laplacian factor
@@ -91,7 +92,7 @@ int main()
     const Stencil s(-1, 2, false);              // 2nd-order CDS stencil
     double dt = (h[0] * h[0]) / (2 * D);        // 2nd-order stability 
     double fac = (D * dt) / (h[0] * h[0]);      // 2nd-order Laplacian factor 
-#endif /* _ACCUR_ */
+#endif /* USE_ACCUR */
 
     // setup lab 
     DataLab dlab; 
@@ -100,7 +101,11 @@ int main()
     // get block field index functor for periodic block accessing
     auto findex = grid.getIndexFunctor(0); 
 
-#ifdef _ACCUR_ 
+    // setup timer & time simulation duration 
+    Timer timer; 
+    double t0 = timer.stop(); 
+    timer.start(); 
+#ifdef USE_ACCUR 
     // loop through time 
     for (double t = 0.0; t < time; t += dt) 
     {
@@ -110,13 +115,19 @@ int main()
             // reference fields & load data into dlab object for current block
             const FieldType &bf = *f;  
             dlab.loadData(bf.getState().block_index, findex);  
-            auto &tf = temp[bf.getState().block_index];
+            auto &tf = tmp[bf.getState().block_index];
 
-            // apply 4th-order central Laplacian discretization 
-            Laplacian4f(dlab,tf);
+            // apply 4th-order central Laplacian discretization
+        #ifdef USE_FLAT
+            Laplacian4f(dlab, tf);
+        #else 
+            Laplacian4s(dlab, tf);
+        #endif /* USE_FLAT */
         }
 
-        // TODO: pass current solution into datalab
+        // finalize computation via point-wise operations
+        //tmp *= fac; 
+        //dlab += tmp;  
     }
 #else 
     // loop through time 
@@ -128,15 +139,24 @@ int main()
             // reference fields & load data into dlab object for current block
             const FieldType &bf = *f;  
             dlab.loadData(bf.getState().block_index, findex);  
-            auto &tf = temp[bf.getState().block_index];
+            auto &tf = tmp[bf.getState().block_index];
                                                                              
-            // apply 2nd-order central Laplacian discretization 
-            Laplacian2f(dlab,tf);
+            // apply 2nd-order central Laplacian discretization
+        #ifdef USE_FLAT
+            Laplacian2f(dlab, tf);
+        #else
+            Laplacian2s(dlab, tf);
+        #endif /* USE_FLAT */  
         }
                                                                              
-        // TODO: pass current solution into datalab
+        // finalize computation via point-wise operations  
+        //tmp *= fac; 
+        //dlab += tmp; 
     }
-#endif /* _ACCUR_ */
+#endif /* USE_ACCUR */  
+    t0 += timer.stop();
+
+    printf("Simulation execution time:\t%e [s].\n", t0);
 
     return 0; 
 }
