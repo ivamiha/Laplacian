@@ -1,3 +1,3 @@
-[submodule "CubismNova"]
-	path = CubismNova
-	url = https://github.com/cselab/CubismNova.git
+[submodule "subprojects/CubismNova"]
+	path = subprojects/CubismNova
+	url = https://github.com/cselab/CubismNova
