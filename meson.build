@@ -14,9 +14,9 @@ project('Laplacian', ['cpp'],
 # compiler object
 cpp = meson.get_compiler('cpp')
 
+## subproject CubismNova
 # mpi dependency for CubismNova
 mpi_dep = dependency('mpi', language: 'cpp', required: true)
-
 # CubismNova dependency 
 cubismnova_dep = dependency('CubismNova',
   default_options: ['CUBISM_TESTS=false'],
@@ -27,6 +27,17 @@ cubismnova_dep = dependency('CubismNova',
 cubismnova_sub = subproject('CubismNova')
 cubismnova_dep = cubismnova_sub.get_variable('cubismnova_dep')
 
+## subproject googletest
+# gtest subproject & dependencies
+gtest_sub = subproject('gtest')
+gtest_dep = gtest_sub.get_variable('gtest_dep')
+gtest_main_dep = gtest_sub.get_variable('gtest_main_dep')
+gmock_dep = gtest_sub.get_variable('gmock_main_dep')
+# gtest for MPI: https://github.com/LLNL/gtest-mpi-listener
+gtest_mpi_listener_sub = subproject('gtest-mpi-listener') 
+gtest_mpi_listener_dep = gtest_mpi_listener_sub.get_variable('gtest_mpi_listener_dep')
+
 # project sources 
 subdir('include')
 subdir('src')
+subdir('test')
