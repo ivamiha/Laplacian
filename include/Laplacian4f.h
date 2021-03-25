@@ -20,10 +20,10 @@
  * */ 
 template <typename FieldLab>
 void Laplacian4f(FieldLab &sol, 
-                 typename FieldLab::Data &tmp, 
-                 std::vector<typename FieldLab::Data::DataType> &fac) 
+                 typename FieldLab::FieldType &tmp, 
+                 std::vector<typename FieldLab::FieldType::DataType> &fac) 
 {
-    using DataType = typename FieldLab::Data::DataType; 
+    using DataType = typename FieldLab::FieldType::DataType; 
     using MIndex = typename FieldLab::MultiIndex;           
  
     // apply flat-indexing & 4th-order CDS
