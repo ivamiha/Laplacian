@@ -7,8 +7,6 @@
 #ifndef LAPLACIAN4S_H
 #define LAPLACIAN4S_H
 
-using namespace Cubism;
-
 /** 
  * @brief Naive 4th-order spatial-indexing Laplacian kernel    
  * @param sol Current solution stored in data structure DataLab 
@@ -18,14 +16,12 @@ using namespace Cubism;
  * discretization scheme (CDS). Implemented with CubismNova's spatial indexing.  
  * @endrst 
  * */ 
-template <typename DataLab>
-void Laplacian4s(DataLab &sol, 
-                 typename DataLab::Data &tmp) 
+template <typename FieldLab>
+void Laplacian4s(FieldLab &sol, 
+                 typename FieldLab::Data &tmp) 
 {
-    using DataType = typename DataLab::Data::DataType; 
-    using Mesh = Mesh::StructuredUniform<DataType, 
-                                         DataLab::Data::IndexRangeType::Dim>;
-    using MIndex = typename Mesh::MultiIndex;
+    using DataType = typename FieldLab::Data::DataType; 
+    using MIndex = typename FieldLab::MultiIndex;
     using Index = typename MIndex::DataType; 
 
     // apply spatial-indexing & 4th-order CDS 

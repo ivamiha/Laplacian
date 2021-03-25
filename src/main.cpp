@@ -4,24 +4,28 @@
 // Description: File with main function for testing Laplacian function
 // Copyright 2021 ETH Zurich. All Rights Reserved.
 
-#include "Cubism/Block/DataLab.h"
+#include "Cubism/Block/FieldLab.h"
 #include "Cubism/Grid/Cartesian.h"
 #include "Cubism/Mesh/StructuredUniform.h"
 #include "Cubism/Block/Field.h"
-#include "Cubism/Common.h"
+#include "Cubism/Block/FieldOperator.h"
+//#include "Cubism/IO/CartesianHDF.h"
 #include "Cubism/Util/Timer.h"
 
 #include "Laplacian2f.h"
 #include "Laplacian2s.h"
 #include "Laplacian4f.h"
 #include "Laplacian4s.h"
+#include "OVS.h"
 
 #include <cstdio>
 
 // enable 4th-order CDS, default 2nd-order CDS 
-//#define USE_ACCUR 
+#define USE_ACCUR 
 // enable flat indexing, default spatial indexing
-#define USE_FLAT  
+#define USE_FLAT 
+// enable order verification study, default benchmarking
+//#define USE_OVS
 
 using namespace Cubism;
 using Util::Timer; 
@@ -42,7 +46,7 @@ int main(int argc, char *argv[])
     printf("flat indexing.\n"); 
 #else
     printf("spatial indexing\n"); 
-#endif /* USE_FLAT */   
+#endif /* USE_FLAT */  
     
     // initialize simulation variables to be used throughout
     double time = 50.0;     // simulation duration [s]
@@ -55,16 +59,16 @@ int main(int argc, char *argv[])
     using SGrid = Grid::Cartesian<float, Mesh, EntityType::Cell, 0>;  
     using DataType = typename SGrid::DataType; 
     using FieldType = typename SGrid::BaseType; 
-    using DataLab = Block::DataLab<typename FieldType::FieldType>; 
-    using Stencil = typename DataLab::StencilType;
+    using FieldLab = Block::FieldLab<typename FieldType::FieldType>; 
+    using Stencil = typename FieldLab::StencilType;
 
     // define number of blocks & cells per block, input in each dimension   
     const MIndex nblocks((argc == 2) ? std::atoi(argv[1]) : 8);                        
     const MIndex block_cells(25);                   
     // map the blocks & cells on domain [0,1]^3 [m] 
-    SGrid grid(nblocks, block_cells);               // solution storage
+    SGrid sol(nblocks, block_cells);                // solution storage
     SGrid tmp(nblocks, block_cells);                // temporary storage
-    const Point h = grid.getMesh().getCellSize(0);  // grid spacing [m]
+    const Point h = sol.getMesh().getCellSize(0);  // grid spacing [m]
 
     // function for writing ICs utilizing input field (block) within grid     
     auto fIC = [h](FieldType &b) {
@@ -79,27 +83,35 @@ int main(int argc, char *argv[])
     };
 
     // initialize grid by looping over blocks in the grid
-    for (auto f : grid) {
-        fIC(*f); 
+    for (auto bf : sol) {
+        fIC(*bf); 
     }
 
+    // dump ICs into HDF5 file, data double precision but write single precis.
+    //IO::CartesianWriteHDF<float>("init", "U", sol, 0);  
+
     // define numerical parameters based on chosen discretization
+    std::vector<DataType> fac(3); 
 #ifdef USE_ACCUR                      
-    const Stencil s(-2, 3, true);               // 4th-order CDS stencil 
-    double dt = (h[0] * h[0]) / (2 * D);        // TODO: 4th-order stability
-    double fac = (D * dt) / (12 * h[0] * h[0]); // 4th-order Laplacian factor
+    const Stencil s(-2, 3, true);                
+    double dt = (h[0] * h[0]) / (2 * D);        
+    fac[0] = (D * dt) / (12 * h[0] * h[0]);
+    fac[1] = (D * dt) / (12 * h[1] * h[1]); 
+    fac[2] = (D * dt) / (12 * h[2] * h[2]); 
 #else                                          
-    const Stencil s(-1, 2, false);              // 2nd-order CDS stencil
-    double dt = (h[0] * h[0]) / (2 * D);        // 2nd-order stability 
-    double fac = (D * dt) / (h[0] * h[0]);      // 2nd-order Laplacian factor 
+    const Stencil s(-1, 2, false);              
+    double dt = (h[0] * h[0]) / (2 * D);        
+    fac[0] = (D * dt) / (h[0] * h[0]);
+    fac[1] = (D * dt) / (h[1] * h[1]); 
+    fac[2] = (D * dt) / (h[2] * h[2]);    
 #endif /* USE_ACCUR */
 
     // setup lab 
-    DataLab dlab; 
-    dlab.allocate(s, grid[0].getIndexRange()); 
+    FieldLab flab; 
+    flab.allocate(s, sol[0].getIndexRange()); 
 
     // get block field index functor for periodic block accessing
-    auto findex = grid.getIndexFunctor(0); 
+    auto findex = sol.getIndexFunctor(0); 
 
     // setup timer & time simulation duration 
     Timer timer; 
@@ -110,52 +122,53 @@ int main(int argc, char *argv[])
     for (double t = 0.0; t < time; t += dt) 
     {
         // loop through blocks in the grid  
-        for (auto f : grid) 
+        for (auto f : sol) 
         {
-            // reference fields & load data into dlab object for current block
+            // reference fields & load data into flab object for current block
             const FieldType &bf = *f;  
-            dlab.loadData(bf.getState().block_index, findex);  
+            flab.loadData(bf.getState().block_index, findex);  
             auto &tf = tmp[bf.getState().block_index];
 
             // apply 4th-order central Laplacian discretization
         #ifdef USE_FLAT
-            Laplacian4f(dlab, tf);
+            Laplacian4f(flab, tf, fac);
         #else 
-            Laplacian4s(dlab, tf);
+            Laplacian4s(flab, tf, fac);
         #endif /* USE_FLAT */
         }
 
-        // finalize computation via point-wise operations
-        //tmp *= fac; 
-        //dlab += tmp;  
+        // advance solution via point-wise operations
+        // fieldAdd(,);  
     }
 #else 
     // loop through time 
     for (double t = 0.0; t < time; t += dt) 
     { 
         // loop through blocks in the grid
-        for (auto f : grid) 
+        for (auto f : sol) 
         {
-            // reference fields & load data into dlab object for current block
+            // reference fields & load data into flab object for current block
             const FieldType &bf = *f;  
-            dlab.loadData(bf.getState().block_index, findex);  
+            flab.loadData(bf.getState().block_index, findex);  
             auto &tf = tmp[bf.getState().block_index];
                                                                              
             // apply 2nd-order central Laplacian discretization
         #ifdef USE_FLAT
-            Laplacian2f(dlab, tf);
+            Laplacian2f(flab, tf, fac);
         #else
-            Laplacian2s(dlab, tf);
+            Laplacian2s(flab, tf, fac);
         #endif /* USE_FLAT */  
         }
                                                                              
-        // finalize computation via point-wise operations  
-        //tmp *= fac; 
-        //dlab += tmp; 
+        // advance solution via point-wise operations  
+        // fieldAdd(,); 
     }
 #endif /* USE_ACCUR */  
     t0 += timer.stop();
 
+    // dump solution into HDF5 file with single precision
+    //IO::CartesianWriteHDF<float>("sol", "div(grad(U)", tmp, 0); 
+    
     printf("Simulation execution time:\t%e [s].\n", t0);
 
     return 0; 
