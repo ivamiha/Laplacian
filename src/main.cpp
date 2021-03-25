@@ -4,11 +4,18 @@
 // Description: File with main function for testing Laplacian function
 // Copyright 2021 ETH Zurich. All Rights Reserved.
 
-#include "Cubism/Block/DataLab.h"
+// XXX: [fabianw@mavt.ethz.ch; 2021-03-25] In the current master branch
+// (fa84c47) I have removed the `DataLab` type and renamed it to `FieldLab`
+// (which is the higher level physical abstraction from the Data.h class where
+// it inherits from.  Data.h is only concerned with data storage/layout.  Is is
+// more reasonable to talk of a FieldLab (laboratory for all kind of numerical
+// operations) instead of a DataLab.  I have replaced the occurrences below in
+// case you want to merge.
+#include "Cubism/Block/Field.h"
+#include "Cubism/Block/FieldLab.h"
+#include "Cubism/Common.h"
 #include "Cubism/Grid/Cartesian.h"
 #include "Cubism/Mesh/StructuredUniform.h"
-#include "Cubism/Block/Field.h"
-#include "Cubism/Common.h"
 #include "Cubism/Util/Timer.h"
 
 #include "Laplacian2f.h"
@@ -54,9 +61,9 @@ int main(int argc, char *argv[])
     using MIndex = typename Mesh::MultiIndex; 
     using SGrid = Grid::Cartesian<float, Mesh, EntityType::Cell, 0>;  
     using DataType = typename SGrid::DataType; 
-    using FieldType = typename SGrid::BaseType; 
-    using DataLab = Block::DataLab<typename FieldType::FieldType>; 
-    using Stencil = typename DataLab::StencilType;
+    using FieldType = typename SGrid::BaseType;
+    using FieldLab = Block::FieldLab<typename FieldType::FieldType>;
+    using Stencil = typename FieldLab::StencilType;
 
     // define number of blocks & cells per block, input in each dimension   
     const MIndex nblocks((argc == 2) ? std::atoi(argv[1]) : 8);                        
@@ -95,8 +102,8 @@ int main(int argc, char *argv[])
 #endif /* USE_ACCUR */
 
     // setup lab 
-    DataLab dlab; 
-    dlab.allocate(s, grid[0].getIndexRange()); 
+    FieldLab flab; 
+    flab.allocate(s, grid[0].getIndexRange()); 
 
     // get block field index functor for periodic block accessing
     auto findex = grid.getIndexFunctor(0); 
@@ -112,22 +119,22 @@ int main(int argc, char *argv[])
         // loop through blocks in the grid  
         for (auto f : grid) 
         {
-            // reference fields & load data into dlab object for current block
+            // reference fields & load data into flab object for current block
             const FieldType &bf = *f;  
-            dlab.loadData(bf.getState().block_index, findex);  
+            flab.loadData(bf.getState().block_index, findex);  
             auto &tf = tmp[bf.getState().block_index];
 
             // apply 4th-order central Laplacian discretization
         #ifdef USE_FLAT
-            Laplacian4f(dlab, tf);
+            Laplacian4f(flab, tf);
         #else 
-            Laplacian4s(dlab, tf);
+            Laplacian4s(flab, tf);
         #endif /* USE_FLAT */
         }
 
         // finalize computation via point-wise operations
         //tmp *= fac; 
-        //dlab += tmp;  
+        //flab += tmp;  
     }
 #else 
     // loop through time 
@@ -136,22 +143,22 @@ int main(int argc, char *argv[])
         // loop through blocks in the grid
         for (auto f : grid) 
         {
-            // reference fields & load data into dlab object for current block
+            // reference fields & load data into flab object for current block
             const FieldType &bf = *f;  
-            dlab.loadData(bf.getState().block_index, findex);  
+            flab.loadData(bf.getState().block_index, findex);  
             auto &tf = tmp[bf.getState().block_index];
                                                                              
             // apply 2nd-order central Laplacian discretization
         #ifdef USE_FLAT
-            Laplacian2f(dlab, tf);
+            Laplacian2f(flab, tf);
         #else
-            Laplacian2s(dlab, tf);
+            Laplacian2s(flab, tf);
         #endif /* USE_FLAT */  
         }
                                                                              
         // finalize computation via point-wise operations  
         //tmp *= fac; 
-        //dlab += tmp; 
+        //flab += tmp; 
     }
 #endif /* USE_ACCUR */  
     t0 += timer.stop();
