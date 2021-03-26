@@ -6,7 +6,7 @@
 
 e = executable('TestLaplacian', 
   files('TestLaplacian.cpp'), 
-  dependencies: cubismnova_dep,
+  dependencies: [cubismnova_dep, mpi_dep, gtest_dep],
   include_directories: inc, 
   install: false, 
 )
