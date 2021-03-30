@@ -8,7 +8,7 @@
 #include "Cubism/Grid/Cartesian.h"
 #include "Cubism/Mesh/StructuredUniform.h"
 #include "Cubism/Block/Field.h"
-#include "Cubism/Block/FieldOperator.h"
+#include "Cubism/IO/CartesianHDF.h"
 #include "Cubism/Util/Timer.h"
 
 #include "Laplacian2f.h"
@@ -44,10 +44,16 @@ int main(int argc, char *argv[])
     printf("spatial indexing.\n"); 
 #endif /* USE_FLAT */  
 
-    // identifers to be used for creating & managing 3D scalar fields
-    using Mesh = Mesh::StructuredUniform<double, 3>;
-    using Point = typename Mesh::PointType; 
-    using MIndex = typename Mesh::MultiIndex; 
+    // identifers to be used for creating & managing meshes
+    using IRange = Core::IndexRange<3>; 
+    using MIndex = typename IRange::MultiIndex; 
+    using Mesh = Mesh::StructuredUniform<double, IRange::Dim>;
+    using PointType = typename Mesh::PointType; 
+
+    const MIndex nblocks(1); 
+    const MIndex block_cells(32);
+
+    // identifiers for creating & managing scalar fields
     using SGrid = Grid::Cartesian<float, Mesh, EntityType::Cell, 0>;  
     using DataType = typename SGrid::DataType; 
     using FieldType = typename SGrid::BaseType; 
@@ -56,21 +62,18 @@ int main(int argc, char *argv[])
    
     // define number of kernel calls to be executed in benchmarking
     size_t N = ((argc == 2) ? std::atoi(argv[1]) : 100);     
-    // define number of blocks & cells per block, input in each dimension
-    const MIndex nblocks(1);                        
-    const MIndex block_cells(32);                   
+    
     // map the blocks & cells on domain [0,1]^3 [m] 
-    SGrid sol(nblocks, block_cells);                // solution storage
-    SGrid tmp(nblocks, block_cells);                // temporary storage
-    const Point h = sol.getMesh().getCellSize(0);   // grid spacing [m]
+    SGrid sol(nblocks, block_cells);                    // solution storage
+    SGrid tmp(nblocks, block_cells);                    // temporary storage
 
     // function for writing ICs utilizing input field (block) within grid     
-    auto fIC = [h](FieldType &b) {
+    auto fIC = [](FieldType &b) {
         const DataType fac = 2 * M_PI;
         const Mesh &bm = *b.getState().mesh;
         // loop over cells in the block's mesh using cell index (ci) 
         for (auto &ci : bm[EntityType::Cell]) {
-            const Point x = bm.getCoordsCell(ci); 
+            const PointType x = bm.getCoordsCell(ci); 
             b[ci] = std::cos(fac * x[0]) * std::cos(fac * x[1]) *
                     std::sin(fac * x[2]);
         } 
@@ -80,6 +83,9 @@ int main(int argc, char *argv[])
     for (auto bf : sol) {
         fIC(*bf); 
     }
+
+    // dump initial coniditon into HDF5 file using single precision 
+    IO::CartesianWriteHDF<float>("IC", "U", sol, 0); 
 
     // define numerical parameters based on chosen discretization
 #ifdef USE_ACCUR                      
@@ -93,26 +99,24 @@ int main(int argc, char *argv[])
     flab.allocate(s, sol[0].getIndexRange()); 
 
     // get block field index functor for periodic block accessing
-    auto findex = sol.getIndexFunctor(0); 
-    
-    // warm-up Laplacian call (any will do)
-    for (auto f : sol) 
-    {
+    auto findex = sol.getIndexFunctor(0);
+
+    // warm-up call (any Laplacian kernel will do) 
+    for (auto f : sol) {
         const FieldType &bf = *f; 
         const MIndex &bi = bf.getState().block_index; 
         sol.loadLab(bf, flab); 
         auto &tf = tmp[bi]; 
-        Laplacian2f(flab, tf);
+        Laplacian2f(flab, tf); 
     }
-    
+
     // setup timer & time simulation duration 
     Timer timer; 
-    double t0 = timer.stop(); 
-#ifdef USE_ACCUR 
+    double t0 = timer.stop();
+
     // loop through time 
     for (size_t n = 0; n < N; ++n) 
     {
-        timer.start(); 
         // loop through blocks in the grid  
         for (auto f : sol) 
         {
@@ -122,41 +126,27 @@ int main(int argc, char *argv[])
             sol.loadLab(bf, flab); 
             auto &tf = tmp[bi];
 
-            // benchmark 4th-order Laplacian CDS
+            // benchmark Laplacian kernels
             timer.start(); 
-            #ifdef USE_FLAT
-                Laplacian4f(flab, tf);
-            #else 
-                Laplacian4s(flab, tf);
-            #endif /* USE_FLAT */
+            #ifdef USE_ACCUR                // 4th-order Laplacian CDS
+                #ifdef USE_FLAT
+                    Laplacian4f(flab, tf);
+                #else 
+                    Laplacian4s(flab, tf);
+                #endif /* USE_FLAT */
+            #else                           // 2nd-order Laplacian CDS
+                #ifdef USE_FLAT
+                    Laplacian2f(flab, tf); 
+                #else 
+                    Laplacian2s(flab, tf); 
+                #endif /* USE_FLAT */
+            #endif /* USE_ACCUR */
             t0 += timer.stop(); 
         }
     }
-#else 
-    // loop through time 
-    for (size_t n = 0; n < N; ++n) 
-    { 
-        // loop through blocks in the grid
-        for (auto f : sol) 
-        {
-            // reference fields & load data into flab object for current block
-            const FieldType &bf = *f;  
-            const MIndex &bi = bf.getState().block_index; 
-            sol.loadLab(bf, flab);
-            auto &tf = tmp[bi];
-                                                                             
-            // benchmark 2nd-order Laplacian CDS
-            timer.start(); 
-            #ifdef USE_FLAT
-                Laplacian2f(flab, tf);
-            #else
-                Laplacian2s(flab, tf);
-            #endif /* USE_FLAT */
-            t0 += timer.stop();  
-        }
-    }
-#endif /* USE_ACCUR */
-    
+   
+    // dump final solution to HDF5 file using single precision 
+    IO::CartesianWriteHDF<float>("sol", "div(grad(U))", tmp, 0); 
     // compute & communicate average kernel execution time
     t0 /= N; 
     printf("After %ld runs, average kernel execution time:\t%e [s].\n", N, t0); 

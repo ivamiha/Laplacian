@@ -23,16 +23,30 @@ void Laplacian2s(FieldLab &sol,
     using DataType = typename FieldLab::FieldType::DataType; 
     using MIndex = typename FieldLab::MultiIndex; 
     using Index = typename MIndex::DataType;
-    
+   
+    // extract mesh & relevant data
+    const auto &bm = tmp.getState().mesh; 
+    const auto h = bm->getCellSize(0);
+    // compute inverse of grid spacing squared  
+    const DataType ihx2 = 1.0 / (h[0] * h[0]);  
+    const DataType ihy2 = 1.0 / (h[1] * h[1]); 
+    const DataType ihz2 = 1.0 / (h[2] * h[2]);
+
     // apply spatial-indexing & 2nd-order CDS 
     const auto extent = tmp.getIndexRange().getExtent(); 
     for (Index iz = 0; iz < extent[2]; ++iz) {
         for (Index iy = 0; iy < extent[1]; ++iy) {
             for (Index ix = 0; ix < extent[0]; ++ix) {
-                tmp(ix, iy, iz) =   sol(ix + 1, iy, iz) + sol(ix - 1, iy, iz)
-                                  + sol(ix, iy + 1, iz) + sol(ix, iy - 1, iz) 
-                                  + sol(ix, iy, iz + 1) + sol(ix, iy, iz - 1)
-                                  - 6*sol(ix, iy, iz);
+                const DataType ddx = 
+                            ihx2 * (sol(ix + 1, iy, iz) - 2 * sol(ix, iy, iz) 
+                                  + sol(ix - 1, iy, iz));
+                const DataType ddy = 
+                            ihy2 * (sol(ix, iy + 1, iz) - 2 * sol(ix, iy, iz) 
+                                  + sol(ix, iy - 1, iz));
+                const DataType ddz = 
+                            ihz2 * (sol(ix, iy, iz + 1) - 2 * sol(ix, iy, iz) 
+                                  + sol(ix, iy, iz - 1)); 
+                tmp(ix, iy, iz) = ddx + ddy + ddz; 
             }
         }
     }

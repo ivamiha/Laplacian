@@ -11,8 +11,6 @@
  * @brief Naive 2nd-order flat-indexing Laplacian kernel    
  * @param sol Current solution stored in data structure DataLab 
  * @param tmp Temporary storage of new solution in data structure Field
- * @param fac Factor by which Laplacian discretization is multiplied, passed
- *        into function as a std::vector<DataType>
  *
  * @rst Naive Laplacian compute kernel utilizing 2nd-order central
  * discretization scheme (CDS). Implemented with CubismNova's flat indexing.  
@@ -20,21 +18,28 @@
  * */ 
 template <typename FieldLab>
 void Laplacian2f(FieldLab &sol, 
-                 typename FieldLab::FieldType &tmp, 
-                 std::vector<typename FieldLab::FieldType::DataType> &fac) 
+                 typename FieldLab::FieldType &tmp)
 {
     using DataType = typename FieldLab::FieldType::DataType; 
-    using MIndex = typename FieldLab::MultiIndex;    
- 
-    // apply flat-indexing & 2nd-order CDS
+    using MIndex = typename FieldLab::MultiIndex;
+
+    // extract mesh & relevant data
+    const auto &bm = tmp.getState().mesh; 
+    const auto h = bm->getCellSize(0);
+    // compute inverse of grid spacing squared  
+    const DataType ihx2 = 1.0 / (h[0] * h[0]);  
+    const DataType ihy2 = 1.0 / (h[1] * h[1]); 
+    const DataType ihz2 = 1.0 / (h[2] * h[2]);
+
+    // apply flat-indexing & 2nd-order CDS   
     const MIndex ix{1, 0, 0}; 
     const MIndex iy{0, 1, 0};
     const MIndex iz{0, 0, 1};
     // loop over all elements in passed-in Field block  
     for (auto &i : tmp.getIndexRange()) {
-        const DataType ddx = fac[0] * (sol[i + ix] - 2 * sol[i] + sol[i - ix]); 
-        const DataType ddy = fac[1] * (sol[i + iy] - 2 * sol[i] + sol[i - iy]); 
-        const DataType ddz = fac[2] * (sol[i + iz] - 2 * sol[i] + sol[i - iy]); 
+        const DataType ddx = ihx2 * (sol[i + ix] - 2 * sol[i] + sol[i - ix]); 
+        const DataType ddy = ihy2 * (sol[i + iy] - 2 * sol[i] + sol[i - iy]); 
+        const DataType ddz = ihz2 * (sol[i + iz] - 2 * sol[i] + sol[i - iy]); 
         tmp[i] = ddx + ddy + ddz;         
     }
 }
