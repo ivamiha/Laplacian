@@ -3,15 +3,15 @@ Development of optimized Laplacian compute kernel
 
 ## Project checklist 
 The date within brackets [dd/mm/yy] denotes the due date originally assigned 
-during the planning of the project. 
-A color code has been utilized to denote the "relevance" of the task: 
-🟢 task necessary for project completion 
-🟡 task optional, but would ideally like to implement
+during the planning of the project.\
+A color code has been utilized to denote the "relevance" of the task:\ 
+🟢 task necessary for project completion\
+🟡 task optional, but would ideally like to implement.\
 
-* [05/03/21] 🟢 literature research on reaction-diffusion systems ✅
-* [12/03/21] 🟢 familiarization with CubismNova ✅
-* [26/03/21] 🟢 implementation of naive centered FD kernels ✅
-* [02/04/21] 🟢 implementation of order verification study ✅
+* [05/03/21] 🟢 literature research on reaction-diffusion systems ✔️
+* [12/03/21] 🟢 familiarization with CubismNova ✔️
+* [26/03/21] 🟢 implementation of naive centered FD kernels ✔️
+* [02/04/21] 🟢 implementation of order verification study ✔️
 * [09/04/21] 🟢 literature research on data-level parallelism 
 * [09/04/21] 🟢 literature research on performance benchmark 
 * [16/04/21] 🟢 optimization of spatial indexing kernel with ISPC
@@ -28,17 +28,8 @@ A color code has been utilized to denote the "relevance" of the task:
 
 Note: Gray-Scott solver-relevant development is undertaken in the 
 `Gray-Scott-3D` repository.
-
-## Kanban "diagram"  
--------------------------------------------------------------------------------
-| **Complete:**                                                               |
-| see checklist above                                                         |
--------------------------------------------------------------------------------
-| **In progress:**                                                            |
-| literature research on data-level parallelism                               |
-| literature research on performance benchmark                                |
-| optimization of spatial indexing kernel with ISPC                           |
--------------------------------------------------------------------------------
-| **To do:**                                                                  |
-| see checklist above                                                         |
--------------------------------------------------------------------------------
+ 
+**Tasks currently in progress**\
+literature research on data-level parallelism\
+literature research on performance benchmark\
+optimization of spatial indexing kernel with ISPC. 
