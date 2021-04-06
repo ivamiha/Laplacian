@@ -4,8 +4,8 @@ Development of optimized Laplacian compute kernel
 ## Project checklist 
 The date within brackets [dd/mm/yy] denotes the due date originally assigned 
 during the planning of the project. A color code has been utilized to denote 
-the "relevance" of the task\ 
-🟢 task necessary for project completion\
+the "relevance" of the task <br /> 
+🟢 task necessary for project completion <br / >
 🟡 task optional, but would ideally like to implement.
 
 * [05/03/21] 🟢 literature research on reaction-diffusion systems ✔️
