@@ -39,7 +39,7 @@ void Laplacian2f(FieldLab &sol,
     for (auto &i : tmp.getIndexRange()) {
         const DataType ddx = ihx2 * (sol[i + ix] - 2 * sol[i] + sol[i - ix]); 
         const DataType ddy = ihy2 * (sol[i + iy] - 2 * sol[i] + sol[i - iy]); 
-        const DataType ddz = ihz2 * (sol[i + iz] - 2 * sol[i] + sol[i - iy]); 
+        const DataType ddz = ihz2 * (sol[i + iz] - 2 * sol[i] + sol[i - iz]); 
         tmp[i] = ddx + ddy + ddz;         
     }
 }
