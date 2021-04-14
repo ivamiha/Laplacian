@@ -17,8 +17,8 @@
  * @endrst 
  * */ 
 template <typename FieldLab>
-void Laplacian4f(FieldLab &sol, 
-                 typename FieldLab::FieldType &tmp)
+inline void Laplacian4f(FieldLab &sol, 
+                        typename FieldLab::FieldType &tmp)
 {
     using DataType = typename FieldLab::FieldType::DataType; 
     using MIndex = typename FieldLab::MultiIndex;           
