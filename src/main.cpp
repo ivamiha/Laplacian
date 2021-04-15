@@ -8,7 +8,6 @@
 #include "Cubism/Grid/Cartesian.h"
 #include "Cubism/Mesh/StructuredUniform.h"
 #include "Cubism/Block/Field.h"
-#include "Cubism/IO/CartesianHDF.h"
 #include "Cubism/Util/Timer.h"
 
 #include "Laplacian2f.h"
@@ -17,21 +16,91 @@
 #include "Laplacian4s.h"
 
 #include <cstdio>
+#include <algorithm>
+#include <vector>
+#include <iostream>
+#include <fstream>
 
 // enable 4th-order CDS, default 2nd-order CDS 
 #define USE_ACCUR 
 // enable flat indexing, default spatial indexing
 #define USE_FLAT
+// enable AVX vector extension based calculations, default is SSE
+//#define USE_AVX
 
 using namespace Cubism;
 using Util::Timer; 
+
+/** 
+ * @brief Get Roofline ceilings & performance based on benchmark parameters
+ * @param T Datatype specifying arithmetic precision used in benchmark
+ * @param time Stored measured CPU time for each benchmark run
+ * @param performance Calculate and store benchmark performance GFLOP/s
+ * @param ceilings Calculate and store coordinates of Roofline ceilings 
+ *
+ * @rst Function template for calculating and storing Roofline-relevant 
+ * data. Architecture-dependent parameters specified within function itself. 
+ * @endrst
+ * */
+template <typename T>
+void getRoofline(std::vector<double> &time, 
+                 std::vector<double> &performance, 
+                 std::vector<double> &roofCoords) 
+{
+    // specify architecture-dependent limits (Intel Xeon E5-2670 v3)
+    const float maxFreq = 3.1;      // maximum CPU frequency [GHz] 
+    const size_t maxCores = 12;     // maximum CPU cores available []
+    const float maxBand = 68.0;     // maximum memory bandwidth [GB/s]
+    const size_t FMA = 2;           // fused multiply-add effect []
+    // specify vector extension-dependent limits (SIMD)
+#ifdef USE_AVX 
+    const size_t maxLanes = (256/8) / sizeof(T); 
+#else
+    const size_t maxLanes = (128/8) / sizeof(T); 
+#endif /* USE_AVX */ 
+    // specify actually used architecture-dependent parameters
+    const size_t nCores = 1; 
+    const size_t nLanes = 1; 
+
+    // specify benchmarked kernel-dependent parameters
+#ifdef USE_ACCUR
+    const float opInt = 0.120;      // operational intensity [FLOP/Byte]
+    const size_t flopCell = 23;     // flops per processed cell [FLOP]
+#else 
+    const float opInt = 0.109;
+    const size_t flopCell = 14;  
+#endif /* USE_ACCUR */
+
+    // compute measured performance for each benchmark run
+    for (size_t i = 0; i < time.size(); ++i) {
+        performance[i] = 1.0E-09 * std::pow(32,3) * flopCell 
+                                 * nCores * nLanes / time[i];
+    }
+    // sort performance vector in ascending order 
+    std::sort(performance.begin(), performance.end());  
+    
+    // compute roofline ceilings
+    const double ceil1 = maxFreq * FMA;  
+    const double ceil2 = maxFreq * FMA * maxLanes; 
+    const double ceil3 = maxFreq * FMA * maxLanes * maxCores; 
+    // store relevant roofline model coordinates
+    roofCoords[0] = ceil1 / maxBand; 
+    roofCoords[1] = ceil1; 
+    roofCoords[2] = ceil2 / maxBand; 
+    roofCoords[3] = ceil2; 
+    roofCoords[4] = ceil3 / maxBand; 
+    roofCoords[5] = ceil3; 
+    roofCoords[6] = opInt; 
+    roofCoords[7] = performance[performance.size()-1]; 
+}
+
+
 
 int main(int argc, char *argv[]) 
 {    
     // welcome & inform user what program configuration is running
     printf("--------------------------------------------------------------\n");
-    printf("T E S T   L A P L A C I A N   C O M P U T E   K E R N E L\n\n");
-    printf("Optimized Laplacian compute kernel utilizing CubismNova\n");
+    printf("T E S T   L A P L A C I A N   C O M P U T E   K E R N E L\n");
     printf("==============================================================\n");
 #ifdef USE_ACCUR
     printf("Benchmarking 4th-order CDS implementation with "); 
@@ -42,8 +111,8 @@ int main(int argc, char *argv[])
     printf("flat indexing.\n"); 
 #else
     printf("spatial indexing.\n"); 
-#endif /* USE_FLAT */  
-
+#endif /* USE_FLAT */ 
+    
     // identifers to be used for creating & managing meshes
     using IRange = Core::IndexRange<3>; 
     using MIndex = typename IRange::MultiIndex; 
@@ -54,7 +123,7 @@ int main(int argc, char *argv[])
     const MIndex block_cells(32);
 
     // identifiers for creating & managing scalar fields
-    using SGrid = Grid::Cartesian<float, Mesh, EntityType::Cell, 0>;  
+    using SGrid = Grid::Cartesian<double, Mesh, EntityType::Cell, 0>;  
     using DataType = typename SGrid::DataType; 
     using FieldType = typename SGrid::BaseType; 
     using FieldLab = Block::FieldLab<typename FieldType::FieldType>; 
@@ -64,8 +133,8 @@ int main(int argc, char *argv[])
     size_t N = ((argc == 2) ? std::atoi(argv[1]) : 100);     
     
     // map the blocks & cells on domain [0,1]^3 [m] 
-    SGrid sol(nblocks, block_cells);                    // solution storage
-    SGrid tmp(nblocks, block_cells);                    // temporary storage
+    SGrid sol(nblocks, block_cells);        // solution storage
+    SGrid tmp(nblocks, block_cells);        // temporary storage
 
     // function for writing ICs utilizing input field (block) within grid     
     auto fIC = [](FieldType &b) {
@@ -83,9 +152,6 @@ int main(int argc, char *argv[])
     for (auto bf : sol) {
         fIC(*bf); 
     }
-
-    // dump initial coniditon into HDF5 file using single precision 
-    IO::CartesianWriteHDF<float>("IC", "U", sol, 0); 
 
     // define numerical parameters based on chosen discretization
 #ifdef USE_ACCUR                      
@@ -110,12 +176,14 @@ int main(int argc, char *argv[])
         Laplacian2f(flab, tf); 
     }
 
-    // setup timer & time simulation duration 
-    Timer timer; 
-    double t0 = timer.stop();
+    // setup timer & required storage 
+    Timer timer;
+    std::vector<double> time(N);            // time per benchmark run 
+    std::vector<double> performance(N);     // performance per benchmark run
+    std::vector<double> roofCoords(8);      // coords. for roofline model
 
-    // loop through time 
-    for (size_t n = 0; n < N; ++n) 
+    // run the benchmark N times 
+    for (size_t i = 0; i < N; ++i) 
     {
         // loop through blocks in the grid  
         for (auto f : sol) 
@@ -141,15 +209,35 @@ int main(int argc, char *argv[])
                     Laplacian2s(flab, tf); 
                 #endif /* USE_FLAT */
             #endif /* USE_ACCUR */
-            t0 += timer.stop(); 
+            time[i] = timer.stop(); 
         }
     }
    
-    // dump final solution to HDF5 file using single precision 
-    IO::CartesianWriteHDF<float>("sol", "div(grad(U))", tmp, 0); 
-    // compute & communicate average kernel execution time
-    t0 /= N; 
-    printf("After %ld runs, average kernel execution time:\t%e [s].\n", N, t0); 
+    // pass benchmarking measurements to getRoofline template function 
+    getRoofline<DataType>(time, performance, roofCoords);     
+    
+    // define percentiles to be selected
+    const int i1 = N * 0.9; 
+    const int i2 = N * 0.5; 
+    const int i3 = N * 0.1; 
+
+    // output 10th, 50th, and 90th percentiles
+    printf("--------------------------------------------------------------\n");     
+    printf("Ranked peak performance after %ld runs: \n", N); 
+    printf("10th percentile:\t%f GFLOP/s\n", performance[i3]); 
+    printf("50th percentile:\t%f GFLOP/s\n", performance[i2]); 
+    printf("90th percentile:\t%f GFLOP/s\n", performance[i1]); 
+    printf("--------------------------------------------------------------\n");      
+
+    // write relevant data to file 
+    std::ofstream results; 
+    results.open("roof.txt"); 
+    for (size_t i = 0; i < roofCoords.size(); ++i) {
+        results << roofCoords[i] << "\n"; 
+    }
+    results.close(); 
+    // execute plotting commands
+    system("wd=$PWD; cd ../../src/; python3 plot.py; cd $wd");  
 
     return 0; 
 }
