@@ -95,7 +95,7 @@ void OVS()
         }
 
         // define stencil 
-        const Stencil s(-1, 2, false); 
+        const Stencil s(-2, 3, true); 
 
         FieldLab flab; 
         flab.allocate(s, sol[0].getIndexRange()); 
@@ -113,7 +113,7 @@ void OVS()
             auto &ef = exa[bi];     // exact solution block field
 
             // apply Laplacian kernel discretization
-            Laplacian2f(flab, tf);
+            Laplacian4f(flab, tf);
                 
             // compute L2-norm (diff. numerical & exact solutions)
             for (auto &ci : bf.getIndexRange()) {
