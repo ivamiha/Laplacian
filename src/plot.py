@@ -24,15 +24,18 @@ y4 = [0, data[1]]
 fig, ax = plt.subplots()
 
 # plot the data
-ax.plot(x3, y3, color = 'darkgreen', linestyle = '-', label='+TLP')
-ax.plot(x2, y2, color = 'darkred', linestyle = '-', label='+DLP')
-ax.plot(x1, y1, 'k-', label='C++')
+ax.plot(x3, y3, color = 'darkgreen', linestyle = '-',
+                                label= f'+TLP (max {data[5]} GFlops/s)')
+ax.plot(x2, y2, color = 'darkred', linestyle = '-', 
+                                label= f'+DLP (max {data[3]} GFlops/s)')
+ax.plot(x1, y1, 'k-', label= f'C++ (max {data[1]} GFlops/s)')
 ax.plot(x4, y4, color = 'k', linestyle = '--')
 ax.scatter(data[6], data[7], s = 50, color = 'k')
-ax.set_xlabel('Operational intensity [FLOPs/Byte]')
-ax.set_ylabel('Performance [GFLOPs/s]')
-ax.set_title('Roofline model for naive 4th-order CDS')
+ax.set_xlabel('Operational intensity [Flops/Byte]')
+ax.set_ylabel('Performance [GFlops/s]')
+ax.set_title('Roofline model benchmarking for naive 4th-order CDS')
 ax.legend(loc='lower right')
+plt.grid(axis = 'y', linestyle = ':', which = 'both')
 plt.yscale('log')
 plt.xscale('log')
 plt.ylim(0.1, 200.0)
