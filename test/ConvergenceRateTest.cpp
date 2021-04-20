@@ -10,15 +10,16 @@
 #include "Cubism/Mesh/StructuredUniform.h"
 #include "gtest/gtest.h"
 
-#include "Laplacian2f.h" 
-#include "Laplacian2s.h"
-#include "Laplacian4f.h"
-#include "Laplacian2s.h"
+#include "LaplacianSecondOrder.h" 
+#include "LaplacianFourthOrder.h"
 
 #include <vector>
 #include <cmath>
 #include <iostream>
 #include <fstream>
+
+// enable fourth-order CDS, default is second-order CDS
+//#define USE_ACCUR
 
 namespace 
 {
@@ -112,8 +113,12 @@ void OVS()
             auto &tf = tmp[bi];     // temporary block field
             auto &ef = exa[bi];     // exact solution block field
 
-            // apply Laplacian kernel discretization
-            Laplacian4f(flab, tf);
+            // apply selected Laplacian kernel discretization
+#ifdef USE_ACCUR
+            LaplacianFourthOrder(flab, tf);
+#else 
+            LaplacianSecondOrder(flab, tf); 
+#endif /* USE_ACCUR */
                 
             // compute L2-norm (diff. numerical & exact solutions)
             for (auto &ci : bf.getIndexRange()) {

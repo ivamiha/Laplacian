@@ -10,10 +10,8 @@
 #include "Cubism/Block/Field.h"
 #include "Cubism/Util/Timer.h"
 
-#include "Laplacian2f.h"
-#include "Laplacian2s.h"
-#include "Laplacian4f.h"
-#include "Laplacian4s.h"
+#include "LaplacianSecondOrder.h"
+#include "LaplacianFourthOrder.h"
 
 #include <cstdio>
 #include <algorithm>
@@ -21,10 +19,8 @@
 #include <iostream>
 #include <fstream>
 
-// enable 4th-order CDS, default 2nd-order CDS 
+// enable fourth-order CDS, default is second-order CDS 
 #define USE_ACCUR 
-// enable flat indexing, default spatial indexing
-#define USE_FLAT
 // enable AVX vector extension based calculations, default is SSE
 //#define USE_AVX
 
@@ -35,7 +31,7 @@ using Util::Timer;
  * @brief Get Roofline ceilings & performance based on benchmark parameters
  * @param T Datatype specifying arithmetic precision used in benchmark
  * @param time Stored measured CPU time for each benchmark run
- * @param performance Calculate and store benchmark performance GFLOP/s
+ * @param performance Calculate and store benchmark performance GFlops/s
  * @param ceilings Calculate and store coordinates of Roofline ceilings 
  *
  * @rst Function template for calculating and storing Roofline-relevant 
@@ -64,17 +60,17 @@ void getRoofline(std::vector<double> &time,
 
     // specify benchmarked kernel-dependent parameters
 #ifdef USE_ACCUR
-    const float opInt = 0.120;      // operational intensity [FLOP/Byte]
-    const size_t flopCell = 23;     // flops per processed cell [FLOP]
+    const float opInt = 0.230;      // operational intensity [Flops/Byte]
+    const size_t flopCell = 35;     // flops per processed cell [Flops/Cell]
 #else 
-    const float opInt = 0.109;
-    const size_t flopCell = 14;  
+    const float opInt = 0.192;
+    const size_t flopCell = 20;  
 #endif /* USE_ACCUR */
 
     // compute measured performance for each benchmark run
     for (size_t i = 0; i < time.size(); ++i) {
-        performance[i] = 1.0E-09 * std::pow(32,3) * flopCell 
-                                 * nCores * nLanes / time[i];
+        performance[i] = 1.0E-09 * std::pow(32,3) * flopCell * FMA 
+                       * nCores * nLanes / time[i];
     }
     // sort performance vector in ascending order 
     std::sort(performance.begin(), performance.end());  
@@ -103,15 +99,10 @@ int main(int argc, char *argv[])
     printf("T E S T   L A P L A C I A N   C O M P U T E   K E R N E L\n");
     printf("==============================================================\n");
 #ifdef USE_ACCUR
-    printf("Benchmarking 4th-order CDS implementation with "); 
+    printf("Benchmarking 4th-order CDS implementation.\n"); 
 #else
-    printf("Benchmarking 2nd-order CDS implementation with "); 
+    printf("Benchmarking 2nd-order CDS implementation.\n"); 
 #endif /* USE_ACCUR */
-#ifdef USE_FLAT 
-    printf("flat indexing.\n"); 
-#else
-    printf("spatial indexing.\n"); 
-#endif /* USE_FLAT */ 
     
     // identifers to be used for creating & managing meshes
     using IRange = Core::IndexRange<3>; 
@@ -173,7 +164,7 @@ int main(int argc, char *argv[])
         const MIndex &bi = bf.getState().block_index; 
         sol.loadLab(bf, flab); 
         auto &tf = tmp[bi]; 
-        Laplacian2f(flab, tf); 
+        LaplacianSecondOrder(flab, tf); 
     }
 
     // setup timer & required storage 
@@ -194,21 +185,13 @@ int main(int argc, char *argv[])
             sol.loadLab(bf, flab); 
             auto &tf = tmp[bi];
 
-            // benchmark Laplacian kernels
-            timer.start(); 
-            #ifdef USE_ACCUR                // 4th-order Laplacian CDS
-                #ifdef USE_FLAT
-                    Laplacian4f(flab, tf);
-                #else 
-                    Laplacian4s(flab, tf);
-                #endif /* USE_FLAT */
-            #else                           // 2nd-order Laplacian CDS
-                #ifdef USE_FLAT
-                    Laplacian2f(flab, tf); 
-                #else 
-                    Laplacian2s(flab, tf); 
-                #endif /* USE_FLAT */
-            #endif /* USE_ACCUR */
+            // benchmark selected Laplacian kernel
+            timer.start();
+#ifdef USE_ACCUR 
+            LaplacianFourthOrder(flab, tf); 
+#else
+            LaplacianSecondOrder(flab, tf); 
+#endif /* USE_ACCUR */
             time[i] = timer.stop(); 
         }
     }
