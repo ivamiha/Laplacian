@@ -7,6 +7,9 @@
 #ifndef LAPLACIANSECONDORDER_H
 #define LAPLACIANSECONDORDER_H
 
+#include "ringBuff.h"
+#include "LaplacianSecondOrderISPC.h"
+
 // enable ISPC DLP, default is CubismNova's flat indexing
 //#define USE_DLP
 // enable OMP TLP, default is no TLP
@@ -39,16 +42,24 @@ inline void LaplacianSecondOrder(FieldLab &sol,
     const DataType ihz2 = 1.0 / (h[2] * h[2]);
 
 #ifdef USE_DLP 
-    // utilize ISPC-based implementation of second-order CDS
+    // utilize ISPC-optimized second-order Laplacian compute kernel
     using Index = typename MIndex::DataType; 
     const auto extent = tmp.getIndexRange().getExtent(); 
+    // create ringBuff struct
+    // ...
+    const size_t Nx = 1;
+    const size_t Ny = 1;
+    const size_t Sx = 1;
+    const size_t Sy = 1;
     // loop over slowest moving index 
     for (Index iz = 0; iz < extent[2]; ++iz) {
+        // define slice pointers for current z-coordinate
+        ;
         // call Laplacian kernel 
         ;
     }
 #else 
-    // utilize naive implementation of second-order CDS   
+    // utilize naive second-order Laplacian compute kernel
     const MIndex ix{1, 0, 0}; 
     const MIndex iy{0, 1, 0};
     const MIndex iz{0, 0, 1};
