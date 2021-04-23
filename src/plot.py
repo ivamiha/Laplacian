@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 plt.rcParams['mathtext.fontset'] = 'cm'
 plt.rcParams['font.family'] = 'STIXGeneral'
 
-data = np.loadtxt('../build/src/roof.txt')
+data = np.loadtxt('../build_release/src/roof.txt')
 
 # unpack data "visually" to serve as reference
 # ridge1 = data[0]     ceil1 = data[1]     ridge2 = data[2]     ceil2 = data[3]
@@ -40,4 +40,4 @@ plt.yscale('log')
 plt.xscale('log')
 plt.ylim(0.1, 200.0)
 plt.xlim(0.01, 100.0)
-plt.savefig('../build/src/roof.png', dpi=600)
+plt.savefig('../build_release/src/roof.png', dpi=600)

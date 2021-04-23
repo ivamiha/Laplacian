@@ -62,7 +62,7 @@ void OVS()
     };
 
     // define fundamental variables for conducting OVS
-    const size_t n = 6;                 // number of grid refinements
+    const size_t n = 8;                 // number of grid refinements
     const float r = 0.5;                // grid refinement ratio 
     std::vector<DataType> h(n,0);       // grid spacing (uniform for OVS)  
     std::vector<DataType> L2(n,0);      // vector for storing computed L2 norms
@@ -73,11 +73,12 @@ void OVS()
     // loop through the number of desired meshes in the OVS
     for (size_t i = 0; i < n; ++i) 
     {
-        // define mesh parameters for current index
-        const MIndex nblocks(pow(1/r,i)); 
-        const MIndex block_cells(4);
-        const size_t cells1D = pow(1/r,i) * 4; 
-        const size_t cells = pow(cells1D, 3);
+        // mesh parameters for current index: vary number of cells in single 
+        // block until reach max cells/block, then vary number of blocks
+        const MIndex nblocks((i < 3) ? 1 : pow(1/r,i-3)); 
+        const MIndex block_cells((i < 3) ? pow(2,i+2) : 32); 
+        const size_t cells1D = ((i < 3) ? pow(2,i+2) : pow(1/r,i-3)*32); 
+        const size_t cells = pow(cells1D,3); 
         h[i] = 1.0 / cells1D; 
         printf("Running study with h = %f [m] & %ld cells.\n", h[i], cells); 
 
@@ -125,8 +126,8 @@ void OVS()
                 // compute local error 
                 DataType e_loc = tf[ci] - ef[ci];
                 // add local error contribution to global error (L2)
-                L2[i] += e_loc * e_loc;           
-            } 
+                L2[i] += e_loc * e_loc;
+            }
         }
         // finalize global error computation through normalization (L2)
         L2[i] = std::sqrt(L2[i] / cells);    

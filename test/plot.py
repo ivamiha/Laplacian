@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 plt.rcParams['mathtext.fontset'] = 'cm'
 plt.rcParams['font.family'] = 'STIXGeneral'
 
-data = np.loadtxt('../build/test/ooa.txt')
+data = np.loadtxt('../build_release/test/ooa.txt')
 
 x = data[:,0]
 y = data[:,1]
@@ -18,4 +18,4 @@ ax.set_ylabel('Δlog($E_j$) / Δlog($h_j$)')
 ax.set_title('Code verification for naive second-order implementation.')
 ax.legend(loc='lower left')
 plt.ylim(plt.ylim()[0]-1.0, plt.ylim()[1] + 0.5)
-plt.savefig('../build/test/OVS.png', dpi=600)
+plt.savefig('../build_release/test/OVS.png', dpi=600)
