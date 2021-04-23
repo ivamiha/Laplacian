@@ -30,8 +30,10 @@ using Util::Timer;
 /** 
  * @brief Get Roofline ceilings & performance based on benchmark parameters
  * @param T Datatype specifying arithmetic precision used in benchmark
- * @param time Stored measured CPU time for each benchmark run
- * @param performance Calculate and store benchmark performance GFlops/s
+ * @param time_zero Stored measured CPU time for each zero cache run
+ * @param performance_zero Calculate and store zero cache performance GFlops/s
+ * @param time_inft Stored measured CPU time for each inft cache run
+ * @param performance_inft Calculate and store inft cache performance GFlops/s
  * @param ceilings Calculate and store coordinates of Roofline ceilings 
  *
  * @rst Function template for calculating and storing Roofline-relevant 
@@ -39,8 +41,10 @@ using Util::Timer;
  * @endrst
  * */
 template <typename T>
-void getRoofline(std::vector<double> &time, 
-                 std::vector<double> &performance, 
+void getRoofline(const std::vector<double> &time_zero, 
+                 std::vector<double> &performance_zero,
+                 const std::vector<double> &time_inft, 
+                 std::vector<double> &performance_inft, 
                  std::vector<double> &roofCoords) 
 {
     // specify architecture-dependent limits (Intel Xeon E5-2670 v3)
@@ -60,20 +64,25 @@ void getRoofline(std::vector<double> &time,
 
     // specify benchmarked kernel-dependent parameters
 #ifdef USE_ACCUR
-    const float opInt = 0.230;      // operational intensity [Flops/Byte]
-    const size_t flopCell = 35;     // flops per processed cell [Flops/Cell]
+    const float opInt_zero = 0.180; // op. intensity no cache [Flops/Byte]
+    const float opInt_inft = 1.438; // op. intensity infty cache [Flops/Byte]
+    const size_t flopCell = 23;     // flops per processed cell [Flops/Cell]
 #else 
-    const float opInt = 0.192;
-    const size_t flopCell = 20;  
+    const float opInt_zero = 0.175;
+    const float opInt_inft = 0.875;
+    const size_t flopCell = 14;  
 #endif /* USE_ACCUR */
 
     // compute measured performance for each benchmark run
-    for (size_t i = 0; i < time.size(); ++i) {
-        performance[i] = 1.0E-09 * std::pow(32,3) * flopCell * FMA 
-                       * nCores * nLanes / time[i];
+    for (size_t i = 0; i < time_zero.size(); ++i) {
+        performance_zero[i] = 1.0E-09 * std::pow(64,3) * flopCell * FMA 
+                              * nCores * nLanes / time_zero[i];
+        performance_inft[i] = 1.0E-09 * std::pow(32,3) * flopCell * FMA
+                              * nCores * nLanes / time_inft[i]; 
     }
-    // sort performance vector in ascending order 
-    std::sort(performance.begin(), performance.end());  
+    // sort performance vectors in ascending order 
+    std::sort(performance_zero.begin(), performance_zero.end()); 
+    std::sort(performance_inft.begin(), performance_inft.end());  
     
     // compute roofline ceilings
     const double ceil1 = maxFreq * FMA;  
@@ -86,8 +95,10 @@ void getRoofline(std::vector<double> &time,
     roofCoords[3] = ceil2; 
     roofCoords[4] = ceil3 / maxBand; 
     roofCoords[5] = ceil3; 
-    roofCoords[6] = opInt; 
-    roofCoords[7] = performance[performance.size()-1]; 
+    roofCoords[6] = opInt_zero;
+    roofCoords[7] = opInt_inft;  
+    roofCoords[8] = performance_zero[performance_zero.size()-1];
+    roofCoords[9] = performance_inft[performance_inft.size()-1];  
 }
 
 
@@ -111,7 +122,8 @@ int main(int argc, char *argv[])
     using PointType = typename Mesh::PointType; 
 
     const MIndex nblocks(1); 
-    const MIndex block_cells(32);
+    const MIndex block_cells_zero(64);  // for zero cache benchmark
+    const MIndex block_cells_inft(32);  // for infinite cache benchmark
 
     // identifiers for creating & managing scalar fields
     using SGrid = Grid::Cartesian<double, Mesh, EntityType::Cell, 0>;  
@@ -124,8 +136,10 @@ int main(int argc, char *argv[])
     size_t N = ((argc == 2) ? std::atoi(argv[1]) : 100);     
     
     // map the blocks & cells on domain [0,1]^3 [m] 
-    SGrid sol(nblocks, block_cells);        // solution storage
-    SGrid tmp(nblocks, block_cells);        // temporary storage
+    SGrid sol_zero(nblocks, block_cells_zero);  // solution storage zero cache
+    SGrid tmp_zero(nblocks, block_cells_zero);  // temporary storage zero cache
+    SGrid sol_inft(nblocks, block_cells_inft);  // solution storage inft cache
+    SGrid tmp_inft(nblocks, block_cells_inft);  // temporary storage inft cache
 
     // function for writing ICs utilizing input field (block) within grid     
     auto fIC = [](FieldType &b) {
@@ -139,8 +153,11 @@ int main(int argc, char *argv[])
         } 
     };
 
-    // initialize grid by looping over blocks in the grid
-    for (auto bf : sol) {
+    // initialize solution storage grids by looping over blocks in the grid
+    for (auto bf : sol_zero) {
+        fIC(*bf); 
+    }
+    for (auto bf : sol_inft) {
         fIC(*bf); 
     }
 
@@ -151,53 +168,80 @@ int main(int argc, char *argv[])
     const Stencil s(-1, 2, false);              
 #endif /* USE_ACCUR */
     
-    // setup lab 
-    FieldLab flab; 
-    flab.allocate(s, sol[0].getIndexRange()); 
+    // setup labs 
+    FieldLab flab_zero, flab_inft; 
+    flab_zero.allocate(s, sol_zero[0].getIndexRange()); 
+    flab_inft.allocate(s, sol_inft[0].getIndexRange()); 
 
-    // get block field index functor for periodic block accessing
-    auto findex = sol.getIndexFunctor(0);
+    // get block field index functors for periodic block accessing
+    auto findex_zero_ = sol_zero.getIndexFunctor(0);
+    auto findex_inft_ = sol_inft.getIndexFunctor(0); 
 
     // warm-up call (any Laplacian kernel will do) 
-    for (auto f : sol) {
+    for (auto f : sol_zero) {
         const FieldType &bf = *f; 
         const MIndex &bi = bf.getState().block_index; 
-        sol.loadLab(bf, flab); 
-        auto &tf = tmp[bi]; 
-        LaplacianSecondOrder(flab, tf); 
+        sol_zero.loadLab(bf, flab_zero); 
+        auto &tf = tmp_zero[bi]; 
+        LaplacianSecondOrder(flab_zero, tf); 
     }
 
     // setup timer & required storage 
     Timer timer;
-    std::vector<double> time(N);            // time per benchmark run 
-    std::vector<double> performance(N);     // performance per benchmark run
-    std::vector<double> roofCoords(8);      // coords. for roofline model
+    std::vector<double> time_zero(N);           // time per zero cache run 
+    std::vector<double> performance_zero(N);    // performance per zero run
+    std::vector<double> time_inft(N);           // time per inft cache run
+    std::vector<double> performance_inft(N);    // performance per inft run
+    std::vector<double> roofCoords(10);         // coords. for roofline model
 
-    // run the benchmark N times 
+    // run zero cache benchmark N times 
     for (size_t i = 0; i < N; ++i) 
     {
         // loop through blocks in the grid  
-        for (auto f : sol) 
+        for (auto f : sol_zero) 
         {
             // reference fields & load data into flab object for current block
             const FieldType &bf = *f;  
             const MIndex &bi = bf.getState().block_index; 
-            sol.loadLab(bf, flab); 
-            auto &tf = tmp[bi];
+            sol_zero.loadLab(bf, flab_zero); 
+            auto &tf = tmp_zero[bi];
 
             // benchmark selected Laplacian kernel
             timer.start();
 #ifdef USE_ACCUR 
-            LaplacianFourthOrder(flab, tf); 
+            LaplacianFourthOrder(flab_zero, tf); 
 #else
-            LaplacianSecondOrder(flab, tf); 
+            LaplacianSecondOrder(flab_zero, tf); 
 #endif /* USE_ACCUR */
-            time[i] = timer.stop(); 
+            time_zero[i] = timer.stop(); 
+        }
+    }
+
+    // run inft cache benchmark N times
+    for (size_t i = 0; i < N; ++i) 
+    {
+        // loop through blocks in the grid
+        for (auto f : sol_inft)
+        {
+            const FieldType &bf = *f; 
+            const MIndex &bi = bf.getState().block_index;
+            sol_inft.loadLab(bf, flab_inft); 
+            auto &tf = tmp_inft[bi];
+
+            // benchmark selected Laplacian kernel 
+            timer.start(); 
+#ifdef USE_ACCUR 
+            LaplacianFourthOrder(flab_inft, tf); 
+#else 
+            LaplacianSecondOrder(flab_inft, tf); 
+#endif /* USE_ACCUR */
+            time_inft[i] = timer.stop(); 
         }
     }
    
     // pass benchmarking measurements to getRoofline template function 
-    getRoofline<DataType>(time, performance, roofCoords);     
+    getRoofline<DataType>(time_zero, performance_zero,
+                                     time_inft, performance_inft, roofCoords);     
     
     // define percentiles to be selected
     const int i1 = N * 0.9; 
@@ -206,10 +250,14 @@ int main(int argc, char *argv[])
 
     // output 10th, 50th, and 90th percentiles
     printf("--------------------------------------------------------------\n");     
-    printf("Ranked peak performance after %ld runs: \n", N); 
-    printf("10th percentile:\t%f GFLOP/s\n", performance[i3]); 
-    printf("50th percentile:\t%f GFLOP/s\n", performance[i2]); 
-    printf("90th percentile:\t%f GFLOP/s\n", performance[i1]); 
+    printf("Ranked peak performance for zero cache after %ld runs: \n", N); 
+    printf("10th percentile:\t%f GFlops/s\n", performance_zero[i3]); 
+    printf("50th percentile:\t%f GFlops/s\n", performance_zero[i2]); 
+    printf("90th percentile:\t%f GFlops/s\n\n", performance_zero[i1]); 
+    printf("Ranked peak performane for infinite cache after %ld runs: \n", N);
+    printf("10th percentile:\t%f GFlops/s\n", performance_inft[i3]); 
+    printf("50th percentile:\t%f GFlops/s\n", performance_inft[i2]); 
+    printf("90th percentile:\t%f GFlops/s\n", performance_inft[i1]); 
     printf("--------------------------------------------------------------\n");      
 
     // write relevant data to file 
