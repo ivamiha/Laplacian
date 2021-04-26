@@ -34,7 +34,7 @@ using Util::Timer;
  * @param performance_zero Calculate and store zero cache performance GFlops/s
  * @param time_inft Stored measured CPU time for each inft cache run
  * @param performance_inft Calculate and store inft cache performance GFlops/s
- * @param ceilings Calculate and store coordinates of Roofline ceilings 
+ * @param roofCoords Calculate and store Roofline ceilings and ridge points 
  *
  * @rst Function template for calculating and storing Roofline-relevant 
  * data. Architecture-dependent parameters specified within function itself. 
@@ -97,8 +97,8 @@ void getRoofline(const std::vector<double> &time_zero,
     roofCoords[5] = ceil3; 
     roofCoords[6] = opInt_zero;
     roofCoords[7] = opInt_inft;  
-    roofCoords[8] = performance_zero[performance_zero.size()-1];
-    roofCoords[9] = performance_inft[performance_inft.size()-1];  
+    roofCoords[8] = performance_zero[performance_zero.size() * 0.5];
+    roofCoords[9] = performance_inft[performance_inft.size() * 0.5];  
 }
 
 
@@ -262,7 +262,8 @@ int main(int argc, char *argv[])
 
     // write relevant data to file 
     std::ofstream results; 
-    results.open("roof.txt"); 
+    results.open("roof.txt");
+    results << std::fixed << std::setprecision(2) << std::endl;  
     for (size_t i = 0; i < roofCoords.size(); ++i) {
         results << roofCoords[i] << "\n"; 
     }

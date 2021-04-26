@@ -34,8 +34,10 @@ ax.plot(x3, y3, color = 'darkgreen', linestyle = '-',
 ax.plot(x2, y2, color = 'darkred', linestyle = '-', 
                                 label= f'+DLP (max {data[3]} GFlops/s)')
 ax.plot(x1, y1, 'k-', label= f'C++ (max {data[1]} GFlops/s)')
-ax.plot(x4, y4, color = 'k', linestyle = '--', label = 'Zero cache OI')
-ax.plot(x5, y5, color = 'k', linestyle = ':', label = 'Infinite cache OI')
+ax.plot(x4, y4, color = 'k', linestyle = '--', 
+                                label = f'Zero cache ({data[8]} GFlops/s)')
+ax.plot(x5, y5, color = 'k', linestyle = ':', 
+                                label = f'Infinite cache ({data[9]} GFlops/s)')
 ax.scatter(data[6], data[8], s = 20, color = 'k')
 ax.scatter(data[7], data[9], s = 20, color = 'k') 
 ax.set_xlabel('Operational intensity (OI) [Flops/Byte]')
@@ -46,6 +48,7 @@ ax.set_title(r'Roofline model for naive fourth-order CDS (double-precision)'
              '\n'
              r'Compiler: GCC 10.1.0 with -O3 -g flags', loc='left')
 ax.legend(loc='lower right')
+ax.set_axisbelow(True)
 plt.grid(axis = 'y', linestyle = ':', which = 'both')
 plt.yscale('log')
 plt.xscale('log')
