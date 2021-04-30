@@ -11,13 +11,11 @@
 #include "LaplacianSecondOrderISPC.h"
 
 // enable ISPC DLP, default is CubismNova's flat indexing
-//#define USE_DLP
-// enable OMP TLP, default is no TLP
-//#define USE_TLP
+#define USE_DLP
 
 /** 
  * @brief Second-order Laplacian compute kernel    
- * @param sol Current solution stored in data structure DataLab 
+ * @param sol Current solution stored in data structure FieldLab 
  * @param tmp Temporary storage of new solution in data structure Field
  *
  * @rst Laplacian compute kernel utilizing second-order central discretization 
@@ -44,20 +42,34 @@ inline void LaplacianSecondOrder(FieldLab &sol,
 #ifdef USE_DLP 
     // utilize ISPC-optimized second-order Laplacian compute kernel
     using Index = typename MIndex::DataType; 
-    const auto extent = tmp.getIndexRange().getExtent(); 
-    // create ringBuff struct
-    // ...
-    const size_t Nx = 1;
-    const size_t Ny = 1;
-    const size_t Sx = 1;
-    const size_t Sy = 1;
-    // loop over slowest moving index 
-    for (Index iz = 0; iz < extent[2]; ++iz) {
-        // define slice pointers for current z-coordinate
-        ;
-        // call Laplacian kernel 
-        ;
+    // extract extent of Field and FieldLab in each dimension
+    const auto extent_f = tmp.getIndexRange().getExtent(); 
+    const auto extent_l = sol.getIndexRange().getExtent();
+    const size_t Nx = extent_f[0], Ny = extent_f[1], Nz = extent_f[2]; 
+    const size_t Sx = extent_l[0], Sy = extent_l[1], Sz = extent_l[2];
+    const size_t Nhalo = 1;
+    // create ring buffer & load pointers to first two slices from FieldLab POV
+    const size_t capacity = 3; 
+    ringBuff_t* ring = ringCreate(capacity);
+    const Index fx = (Sx - Nx) / 2;             // equal to x = 0 in Field 
+    const Index fy = (Sy - Ny) / 2;             // equal to y = 0 in Field
+    const Index fz = ((Sz - Nz) / 2) - Nhalo;   // equal to z = -Nhalo in Field 
+    ringEnqueue(ring, &tmp(fx, fy, fz)); 
+    ringEnqueue(ring, &tmp(fx, fy, fz + 1)); 
+    
+    // loop over slowest moving index to include all remaining slices
+    // TODO: need to change limit once solve segmentation (Nz + Nhalo)
+    for (Index iz = fz + 2; iz < Nz; ++iz) {
+        // enqueue slice for latest z-coordinate
+        // TODO: should index &sol rather than &tmp, but get segmentation
+        ringEnqueue(ring, &tmp(fx, fy, iz)); 
+        // call ISPC Laplacian kernel to process currently loaded slices
+        ispc::LaplacianSecondOrderISPC(ring -> data, ring -> head, 
+                                       ring -> capacity, Nx, Ny, Sx, Nhalo); 
     }
+    
+    // free dynamically allocated memory
+    ringFree(ring); 
 #else 
     // utilize naive second-order Laplacian compute kernel
     const MIndex ix{1, 0, 0}; 
