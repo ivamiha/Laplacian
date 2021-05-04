@@ -7,20 +7,19 @@
 #ifndef LAPLACIANFOURTHORDER_H
 #define LAPLACIANFOURTHORDER_H
 
+#include "LaplacianFourthOrderISPC.h"
+
 // enable ISPC DLP, default is CubismNova's flat indexing
-//#define USE_DLP 
-// enable OMP TLP, default is no TLP
-//#define USE_TLP
+#define USE_DLP 
 
 /** 
  * @brief Fourth-order Laplacian compute kernel    
- * @param sol Current solution stored in data structure DataLab 
+ * @param sol Current solution stored in data structure FieldLab
  * @param tmp Temporary storage of new solution in data structure Field
  *
  * @rst Laplacian compute kernel utilizing fourth-order central discretization 
  * scheme (CDS). Data-level parallelism (DLP) implemented with ISPC (Intel® 
- * Implicit SPMD Program Compiler) and thread-level parallelism (TLP) 
- * implemented with OpenMP. 
+ * Implicit SPMD Program Compiler). 
  * @endrst 
  * */ 
 template <typename FieldLab>
@@ -41,12 +40,25 @@ inline void LaplacianFourthOrder(FieldLab &sol,
 #ifdef USE_DLP
     // utilize ISPC-based implementation of fourth-order CDS
     using Index = typename MIndex::DataType; 
-    const auto extent = tmp.getIndexRange().getExtent(); 
-    // loop over slowest moving index 
-    for (Index iz = 0; iz < extent[2]; ++iz) {
-        // call ISPC kernel
-        ;
-    } 
+    // extract extents of Field and FieldLab which will be required 
+    const size_t Nx = tmp.getIndexRange().getExtent()[0]; 
+    const size_t Ny = tmp.getIndexRange().getExtent()[1]; 
+    const Index  Nz = tmp.getIndexRange().getExtent()[2]; 
+    const size_t NxNy = Nx * Ny; 
+    const size_t Sx = sol.getIndexRange().getExtent()[0]; 
+    const size_t SxSy = Sx * sol.getIndexRange().getExtent()[1]; 
+    // get pointers to first slices in both FieldLab and Field 
+    DataType *slice_sol = sol.getInnerData(); 
+    const MIndex zero{0, 0, 0};
+    DataType *slice_tmp = &tmp[zero];
+
+    // loop over slowest moving index to cover all slices in domain
+    for (Index iz = 0; iz < Nz; ++iz) {
+        // extract relevant slices & process them in ISPC kernel
+        DataType *psol = &slice_sol[iz * SxSy];
+        DataType *ptmp = &slice_tmp[iz * NxNy]; 
+        ispc::LaplacianFourthOrderISPC(psol, ptmp, Nx, Ny, Sx, SxSy, ihx2);
+    }
 #else 
     // utilize naive implementation of fourth-order CDS
     const MIndex ix{1, 0, 0}; 
