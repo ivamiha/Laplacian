@@ -7,7 +7,7 @@
 #ifndef LAPLACIANFOURTHORDER_H
 #define LAPLACIANFOURTHORDER_H
 
-#include "LaplacianFourthOrderISPC.h"
+#include "sliceFourthOrder.h"
 
 // enable ISPC DLP, default is CubismNova's flat indexing
 #define USE_DLP 
@@ -40,6 +40,9 @@ inline void LaplacianFourthOrder(FieldLab &sol,
 #ifdef USE_DLP
     // utilize ISPC-based implementation of fourth-order CDS
     using Index = typename MIndex::DataType; 
+    // package inverse grid spacing squared values into array & create pointer
+    const DataType ih2[3] = {ihx2, ihy2, ihz2}; 
+    const DataType *pih2 = &ih2[0]; 
     // extract extents of Field and FieldLab which will be required 
     const size_t Nx = tmp.getIndexRange().getExtent()[0]; 
     const size_t Ny = tmp.getIndexRange().getExtent()[1]; 
@@ -57,7 +60,7 @@ inline void LaplacianFourthOrder(FieldLab &sol,
         // extract relevant slices & process them in ISPC kernel
         DataType *psol = &slice_sol[iz * SxSy];
         DataType *ptmp = &slice_tmp[iz * NxNy]; 
-        ispc::LaplacianFourthOrderISPC(psol, ptmp, Nx, Ny, Sx, SxSy, ihx2);
+        ispc::sliceFourthOrder(psol, ptmp, Nx, Ny, Sx, SxSy, pih2);
     }
 #else 
     // utilize naive implementation of fourth-order CDS
