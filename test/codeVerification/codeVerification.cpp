@@ -150,9 +150,6 @@ void OVS()
         results << std::log10(h[i+1]) << "\t" << OOA[i] << "\n"; 
     }
     results.close(); 
-
-    // execute plotting commands
-    system("wd=$PWD; cd ../../test/; python3 plot.py; cd $wd"); 
 }
 } // namespace
 

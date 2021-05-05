@@ -268,8 +268,6 @@ int main(int argc, char *argv[])
         results << roofCoords[i] << "\n"; 
     }
     results.close(); 
-    // execute plotting commands
-    system("wd=$PWD; cd ../../src/; python3 plot.py; cd $wd");  
 
     return 0; 
 }

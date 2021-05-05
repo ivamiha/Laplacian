@@ -4,8 +4,14 @@
 # Description: Meson unit test build definition
 # Copyright 2021 ETH Zurich. All Rights Reserved.
 
+test_data = custom_target('benchmarking-plot', 
+  command: ['rsync', '@INPUT@', '@OUTPUT@'], 
+  input: files('plot.py'), 
+  output: 'plot.py',
+)
 e = executable('benchmarking', 
-  files('benchmarking.cpp'),
+  [files(['benchmarking.cpp',
+    ]), test_data],
   dependencies:  [cubismnova_dep, mpi_dep, gtest_dep], 
   include_directories: inc, 
   install: false
