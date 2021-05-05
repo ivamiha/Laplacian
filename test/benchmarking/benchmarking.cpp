@@ -1,7 +1,7 @@
 // File       : main.cpp    
 // Created    : Tue Mar 16 2021  9:46:31 am CET (+0100)
 // Author     : Ivan Mihajlovic Milin
-// Description: File with main function for testing Laplacian function
+// Description: Benchmarking suit for quantifying Laplacian kernel performance
 // Copyright 2021 ETH Zurich. All Rights Reserved.
 
 #include "Cubism/Block/FieldLab.h"
@@ -58,9 +58,6 @@ void getRoofline(const std::vector<double> &time_zero,
 #else
     const size_t maxLanes = (128/8) / sizeof(T); 
 #endif /* USE_AVX */ 
-    // specify actually used architecture-dependent parameters
-    const size_t nCores = 1; 
-    const size_t nLanes = 2; 
 
     // specify benchmarked kernel-dependent parameters
 #ifdef USE_ACCUR
@@ -75,10 +72,8 @@ void getRoofline(const std::vector<double> &time_zero,
 
     // compute measured performance for each benchmark run
     for (size_t i = 0; i < time_zero.size(); ++i) {
-        performance_zero[i] = 1.0E-09 * std::pow(64,3) * flopCell * FMA 
-                              * nCores * nLanes / time_zero[i];
-        performance_inft[i] = 1.0E-09 * std::pow(32,3) * flopCell * FMA
-                              * nCores * nLanes / time_inft[i]; 
+        performance_zero[i] = 1E-09 * std::pow(64,3) * flopCell / time_zero[i];
+        performance_inft[i] = 1E-09 * std::pow(32,3) * flopCell / time_inft[i];
     }
     // sort performance vectors in ascending order 
     std::sort(performance_zero.begin(), performance_zero.end()); 
@@ -88,6 +83,15 @@ void getRoofline(const std::vector<double> &time_zero,
     const double ceil1 = maxFreq * FMA;  
     const double ceil2 = maxFreq * FMA * maxLanes; 
     const double ceil3 = maxFreq * FMA * maxLanes * maxCores; 
+    // compute average performance for both test scenarios
+    double avg_zero = 0;
+    double avg_inft = 0; 
+    for (size_t i = 0; i < performance_zero.size(); ++i) {
+        avg_zero += performance_zero[i]; 
+        avg_inft += performance_inft[i]; 
+    }
+    avg_zero /= performance_zero.size(); 
+    avg_inft /= performance_inft.size(); 
     // store relevant roofline model coordinates
     roofCoords[0] = ceil1 / maxBand; 
     roofCoords[1] = ceil1; 
@@ -97,8 +101,8 @@ void getRoofline(const std::vector<double> &time_zero,
     roofCoords[5] = ceil3; 
     roofCoords[6] = opInt_zero;
     roofCoords[7] = opInt_inft;  
-    roofCoords[8] = performance_zero[performance_zero.size() * 0.5];
-    roofCoords[9] = performance_inft[performance_inft.size() * 0.5];  
+    roofCoords[8] = avg_zero;
+    roofCoords[9] = avg_inft;  
 }
 
 
