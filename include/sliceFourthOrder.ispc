@@ -1,7 +1,7 @@
-// File       : LaplacianFourthOrderISPC.ispc
+// File       : sliceFourthOrder.ispc
 // Created    : Tue Apr 20 2021 05:42:48 PM (+0200)
 // Author     : Ivan Mihajlovic Milin
-// Description: Fourth-order Laplacian compute kernel ISPC implementation
+// Description: ISPC implementation for processing slice with fourth-order CDS
 // Copyright 2021 ETH Zurich. All Rights Reserved.
  
 /**

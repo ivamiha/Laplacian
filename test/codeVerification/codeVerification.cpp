@@ -19,7 +19,7 @@
 #include <fstream>
 
 // enable fourth-order CDS, default is second-order CDS
-//#define USE_ACCUR
+#define USE_ACCUR
 
 namespace 
 {
@@ -131,7 +131,7 @@ void OVS()
         }
         // finalize global error computation through normalization (L2)
         L2[i] = std::sqrt(L2[i] / cells);    
-        printf("Computed L2-norm: %f.\n", L2[i]); 
+        printf("Computed L2-norm: %.12lf.\n", L2[i]); 
         printf("----------------------------------------------------\n"); 
     }
 

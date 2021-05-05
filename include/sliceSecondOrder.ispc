@@ -1,7 +1,7 @@
-// File       : LaplacianSecondOrderISPC.ispc
+// File       : sliceSecondOrder.ispc
 // Created    : Tue Apr 20 2021 05:33:51 PM (+0200)
 // Author     : Ivan Mihajlovic Milin
-// Description: Second-order Laplacian compute kernel ISPC implementation
+// Description: ISPC implementation for processing slice with second-order CDS
 // Copyright 2021 ETH Zurich. All Rights Reserved.
 
 /**
