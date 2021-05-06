@@ -10,7 +10,7 @@
 #include "sliceFourthOrder.h"
 
 // enable ISPC DLP, default is CubismNova's flat indexing
-#define USE_DLP 
+//#define USE_DLP 
 
 /** 
  * @brief Fourth-order Laplacian compute kernel    
@@ -28,57 +28,70 @@ inline void LaplacianFourthOrder(FieldLab &sol,
 {
     using DataType = typename FieldLab::FieldType::DataType; 
     using MIndex = typename FieldLab::MultiIndex;           
+    using Index = typename MIndex::DataType;
  
     // extract mesh & relevant data
     const auto &bm = tmp.getState().mesh; 
     const auto h = bm->getCellSize(0);
-    // compute inverse of grid spacing squared for given discretization
-    const DataType ihx2 = 1.0 / (12 * h[0] * h[0]);  
-    const DataType ihy2 = 1.0 / (12 * h[1] * h[1]); 
-    const DataType ihz2 = 1.0 / (12 * h[2] * h[2]);
-
-#ifdef USE_DLP
-    // utilize ISPC-based implementation of fourth-order CDS
-    using Index = typename MIndex::DataType; 
-    // package inverse grid spacing squared values into array & create pointer
-    const DataType ih2[3] = {ihx2, ihy2, ihz2}; 
+    // compute inverse of grid spacing squared and create pointer to array
+    const DataType ih2[3] = {1.0 / (12 * h[0] * h[0]),
+                             1.0 / (12 * h[1] * h[1]), 
+                             1.0 / (12 * h[2] * h[2])};
     const DataType *pih2 = &ih2[0]; 
-    // extract extents of Field and FieldLab which will be required 
+    // extract extents of Field and FieldLab which will be required
     const size_t Nx = tmp.getIndexRange().getExtent()[0]; 
     const size_t Ny = tmp.getIndexRange().getExtent()[1]; 
     const Index  Nz = tmp.getIndexRange().getExtent()[2]; 
     const size_t NxNy = Nx * Ny; 
     const size_t Sx = sol.getIndexRange().getExtent()[0]; 
     const size_t SxSy = Sx * sol.getIndexRange().getExtent()[1]; 
-    // get pointers to first slices in both FieldLab and Field 
+    // get pointers to first slices in both Field and FieldLab
+    const MIndex zero{0, 0, 0}; 
+    DataType *slice_tmp = &tmp[zero]; 
     DataType *slice_sol = sol.getInnerData(); 
-    const MIndex zero{0, 0, 0};
-    DataType *slice_tmp = &tmp[zero];
 
+#ifdef USE_DLP
     // loop over slowest moving index to cover all slices in domain
-    for (Index iz = 0; iz < Nz; ++iz) {
+    for (Index k = 0; k < Nz; ++k) {
         // extract relevant slices & process them in ISPC kernel
-        DataType *psol = &slice_sol[iz * SxSy];
-        DataType *ptmp = &slice_tmp[iz * NxNy]; 
+        DataType *psol = &slice_sol[k * SxSy];
+        DataType *ptmp = &slice_tmp[k * NxNy]; 
         ispc::sliceFourthOrder(psol, ptmp, Nx, Ny, Sx, SxSy, pih2);
     }
 #else 
-    // utilize naive implementation of fourth-order CDS
-    const MIndex ix{1, 0, 0}; 
-    const MIndex iy{0, 1, 0};
-    const MIndex iz{0, 0, 1};
-    const MIndex iix{2, 0, 0};
-    const MIndex iiy{0, 2, 0};
-    const MIndex iiz{0, 0, 2};
-    // loop over all elements in passed-in Field block  
-    for (auto &i : tmp.getIndexRange()) {
-        const DataType ddx = ihx2 * (16 * (sol[i + ix] + sol[i - ix]) 
-                                - sol[i + iix] - sol[i - iix] - 30 * sol[i]);
-        const DataType ddy = ihy2 * (16 * (sol[i + iy] + sol[i - iy])
-                                - sol[i + iiy] - sol[i - iiy] - 30 * sol[i]);
-        const DataType ddz = ihz2 * (16 * (sol[i + iz] + sol[i - iz]) 
-                                - sol[i + iiz] - sol[i - iiz] - 30 * sol[i]); 
-        tmp[i] = ddx + ddy + ddz;     
+    // loop over slowest moving index to cover all slices in domain
+    for (Index k = 0; k < Nz; ++k) {
+        // extract relevant slices & process them in ISPC kernel
+        DataType *psol = &slice_sol[k * SxSy]; 
+        DataType *ptmp = &slice_tmp[k * NxNy]; 
+        // loop over slice indices 
+        for (size_t j = 0; j < Ny; ++j) {
+            for (size_t i = 0; i < Nx; ++i) {
+                // extract data for relevant indices 
+                const DataType c   = psol[i + j * Sx];            
+                const DataType xp1 = psol[i + j * Sx + 1];        
+                const DataType xm1 = psol[i + j * Sx - 1];        
+                const DataType xp2 = psol[i + j * Sx + 2];        
+                const DataType xm2 = psol[i + j * Sx - 2];        
+                const DataType yp1 = psol[i + j * Sx + Sx];       
+                const DataType ym1 = psol[i + j * Sx - Sx];       
+                const DataType yp2 = psol[i + j * Sx + 2 * Sx];   
+                const DataType ym2 = psol[i + j * Sx - 2 * Sx];   
+                const DataType zp1 = psol[i + j * Sx + SxSy];     
+                const DataType zm1 = psol[i + j * Sx - SxSy];     
+                const DataType zp2 = psol[i + j * Sx + 2 * SxSy]; 
+                const DataType zm2 = psol[i + j * Sx - 2 * SxSy]; 
+
+                // apply fourth-order CDS
+                const DataType ddx = pih2[0] * (16 * (xp1 + xm1) 
+                                                        - xp2 - xm2 - 30 * c);
+                const DataType ddy = pih2[1] * (16 * (yp1 + ym1) 
+                                                        - yp2 - ym2 - 30 * c);
+                const DataType ddz = pih2[2] * (16 * (zp1 + zm1)
+                                                        - zp2 - zm2 - 30 * c);
+                ptmp[i + j * Nx] = ddx + ddy + ddz; 
+            }
+        }
     }
 #endif /* USE_DLP */
 }
