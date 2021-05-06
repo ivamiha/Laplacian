@@ -37,6 +37,9 @@ gmock_dep = gtest_sub.get_variable('gmock_main_dep')
 gtest_mpi_listener_sub = subproject('gtest-mpi-listener') 
 gtest_mpi_listener_dep = gtest_mpi_listener_sub.get_variable('gtest_mpi_listener_dep')
 
+#openmp dependency
+omp_dep = dependency('openmp', language: 'cpp', required: true)
+
 # project sources 
 subdir('include')
 subdir('src')

@@ -14,8 +14,8 @@
 #include "LaplacianFourthOrder.h"
 
 #include <cstdio>
-#include <algorithm>
 #include <vector>
+#include <omp.h>
 #include <iostream>
 #include <fstream>
 
@@ -202,6 +202,7 @@ int main(int argc, char *argv[])
     for (size_t i = 0; i < N; ++i) 
     {
         // loop through blocks in the grid  
+#pragma omp parallel for num_threads(4)
         for (auto f : sol_zero) 
         {
             // reference fields & load data into flab object for current block
@@ -225,6 +226,7 @@ int main(int argc, char *argv[])
     for (size_t i = 0; i < N; ++i) 
     {
         // loop through blocks in the grid
+#pragma omp parallel for num_threads(4)
         for (auto f : sol_inft)
         {
             const FieldType &bf = *f; 

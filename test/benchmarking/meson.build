@@ -12,7 +12,9 @@ test_data = custom_target('benchmarking-plot',
 e = executable('benchmarking', 
   [files(['benchmarking.cpp',
     ]), test_data],
-  dependencies:  [cubismnova_dep, mpi_dep, gtest_dep], 
+  cpp_args: '-fopenmp',
+  link_args: '-fopenmp',
+  dependencies:  [cubismnova_dep, mpi_dep, omp_dep, gtest_dep], 
   include_directories: inc, 
   install: false
 )
