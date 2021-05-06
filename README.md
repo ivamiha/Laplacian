@@ -23,11 +23,11 @@ the "relevance" of the task <br />
 * [02/04/21] 🟢 implementation of order verification study                  ✔️
 * [09/04/21] 🟢 literature research on data-level parallelism               ✔️ 
 * [09/04/21] 🟢 literature research & implementation of benchmark suite     ✔️
-* [16/04/21] 🟢 initial implementation of sliced ISPC kernel 
-* [16/04/21] 🟢 performance analysis of naive FD kernels
-* [23/04/21] 🟢 optimization of sliced ISPC kernel 
-* [23/04/21] 🟢 performance analysis of sliced ISPC kernel
-* [30/04/21] 🟡 extension of sliced ISPC kernels to 4th-order FDs
+* [16/04/21] 🟢 initial implementation of sliced ISPC kernel                ✔️
+* [16/04/21] 🟢 performance analysis of naive FD kernels                    ✔️
+* [23/04/21] 🟢 optimization of sliced ISPC kernel  
+* [23/04/21] 🟢 performance analysis of sliced ISPC kernel                  ✔️
+* [30/04/21] 🟡 extension of sliced ISPC kernels to 4th-order FDs           ✔️
 * [30/04/21] 🟢 finalizing serial Gray-Scott solver  
 
 **May**
@@ -46,8 +46,8 @@ Note: Gray-Scott solver-relevant development is undertaken in the
 
 ## Current focus tasks
 Following tasks are being undertaken this week: 
-* initial implementation of sliced ISPC kernel 
-* performance analysis of naive FD kernels
+* optimization of sliced ISPC kernel
+* finalizing serial Gray-Scott solver
 
 Further notes: <br />
 To be completed as develop ideas throughout the week. 
