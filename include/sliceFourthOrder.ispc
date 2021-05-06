@@ -12,7 +12,7 @@
  * @param Ny Number of elements in computational domain in y-direction 
  * @param Sx Number of elements in FieldLab stride in x-direction 
  * @param SxSy FieldLab x-direction * y-direction strides, use to change slices
- * @param ih2 Inverse grid spacing squared to be used for CDS computation
+ * @param pih2 Pointer to array with inverse grid spacing squared values
  *
  * @rst Sliced ISPC implementation computes values of elements in a passed-in 
  * x-y plane (slice). Due to the problem being 3D, FD computations require 
@@ -20,14 +20,14 @@
  * behavior introduced in innermost (fastest) looping index. 
  * @endrst
  * */
-export inline void LaplacianFourthOrderISPC(
-                                        const uniform double* uniform psol,
-                                        uniform double* uniform ptmp, 
-                                        const uniform size_t Nx,
-                                        const uniform size_t Ny,
-                                        const uniform size_t Sx, 
-                                        const uniform size_t SxSy,
-                                        const uniform double ih2)
+export inline void sliceFourthOrder(
+                                const uniform double* uniform psol,
+                                uniform double* uniform ptmp, 
+                                const uniform size_t Nx,
+                                const uniform size_t Ny,
+                                const uniform size_t Sx, 
+                                const uniform size_t SxSy,
+                                const uniform double* uniform pih2)
 {
     for (uniform int j = 0; j < Ny; ++j) {
         foreach (i = 0 ... Nx) {
@@ -47,9 +47,12 @@ export inline void LaplacianFourthOrderISPC(
             double zm2 = psol[i + j * Sx - 2 * SxSy];   // z minus 2
 
             // apply fourth-order CDS
-            const double ddx = ih2 * (16 * (xp1 + xm1) - xp2 - xm2 - 30 * c);
-            const double ddy = ih2 * (16 * (yp1 + ym1) - yp2 - ym2 - 30 * c);
-            const double ddz = ih2 * (16 * (zp1 + zm1) - zp2 - zm2 - 30 * c);
+            const double ddx = pih2[0] * (16 * (xp1 + xm1) 
+                                                        - xp2 - xm2 - 30 * c);
+            const double ddy = pih2[1] * (16 * (yp1 + ym1) 
+                                                        - yp2 - ym2 - 30 * c);
+            const double ddz = pih2[2] * (16 * (zp1 + zm1) 
+                                                        - zp2 - zm2 - 30 * c);
             ptmp[i + j * Nx] = ddx + ddy + ddz;
         }
     }
