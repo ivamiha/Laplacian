@@ -28,9 +28,15 @@
 //#define USE_TLP
 
 using namespace Cubism;
-using Util::Timer; 
 
-// timer method 
+/** 
+ * @brief Timer method relying on system time
+ *
+ * @rst Timer method which relies on system time. Selected approach varies 
+ * depending on whether the OpenMP flag is activated or not. Specific timer
+ * method was taken from the computepower.cpp micro-benchmark. 
+ * @endrst
+ * */
 double mysecond() {
 #ifdef USE_TLP 
     return omp_get_wtime(); 
