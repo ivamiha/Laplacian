@@ -94,10 +94,8 @@ void getRoofline(const std::vector<double> &time_zero,
 
     // compute measured performance for each benchmark run
     for (size_t i = 0; i < time_zero.size(); ++i) {
-        performance_zero[i] = 1E-09 * std::pow(64,3) * std::pow(4,3) * 
-                                                       flopCell / time_zero[i];
-        performance_inft[i] = 1E-09 * std::pow(32,3) * std::pow(4,3) * 
-                                                       flopCell / time_inft[i];
+        performance_zero[i] = 1E-09 * std::pow(64,3) * flopCell / time_zero[i];
+        performance_inft[i] = 1E-09 * std::pow(16,3) * flopCell / time_inft[i];
     }
     // sort performance vectors in ascending order 
     std::sort(performance_zero.begin(), performance_zero.end()); 
@@ -149,9 +147,9 @@ int main(int argc, char *argv[])
     using Mesh = Mesh::StructuredUniform<double, IRange::Dim>;
     using PointType = typename Mesh::PointType; 
 
-    const MIndex nblocks(4); 
+    const MIndex nblocks(1); 
     const MIndex block_cells_zero(64);  // for zero cache benchmark
-    const MIndex block_cells_inft(32);  // for infinite cache benchmark
+    const MIndex block_cells_inft(16);  // for infinite cache benchmark
 
     // identifiers for creating & managing scalar fields
     using SGrid = Grid::Cartesian<double, Mesh, EntityType::Cell, 0>;  
@@ -161,7 +159,7 @@ int main(int argc, char *argv[])
     using Stencil = typename FieldLab::StencilType;
    
     // define number of kernel calls to be executed in benchmarking
-    size_t N = ((argc == 2) ? std::atoi(argv[1]) : 10);     
+    size_t N = ((argc == 2) ? std::atoi(argv[1]) : 100);     
     
     // map the blocks & cells on domain [0,1]^3 [m] 
     SGrid sol_zero(nblocks, block_cells_zero);  // solution storage zero cache
@@ -205,15 +203,13 @@ int main(int argc, char *argv[])
     auto findex_zero_ = sol_zero.getIndexFunctor(0);
     auto findex_inft_ = sol_inft.getIndexFunctor(0); 
 
-    // warm up - call any Laplacian kernel 100 times
-    for (size_t i = 0; i < 100; ++i) { 
-        for (auto f : sol_zero) {
-            const FieldType &bf = *f; 
-            const MIndex &bi = bf.getState().block_index; 
-            sol_zero.loadLab(bf, flab_zero); 
-            auto &tf = tmp_zero[bi]; 
-            LaplacianSecondOrder(flab_zero, tf); 
-        }
+    // warm up - call Laplacian kernel once
+    for (auto f : sol_zero) {
+        const FieldType &bf = *f; 
+        const MIndex &bi = bf.getState().block_index; 
+        sol_zero.loadLab(bf, flab_zero); 
+        auto &tf = tmp_zero[bi]; 
+        LaplacianSecondOrder(flab_zero, tf); 
     }
 
     // setup timer & required storage 
@@ -226,7 +222,6 @@ int main(int argc, char *argv[])
     // run zero cache benchmark N times 
     for (size_t i = 0; i < N; ++i) 
     {   
-        double tstart = mysecond(); 
 #ifdef USE_TLP
         #pragma omp parallel for num_threads(4)
 #endif /* USE TLP_ */
@@ -239,20 +234,20 @@ int main(int argc, char *argv[])
             sol_zero.loadLab(bf, flab_zero); 
             auto &tf = tmp_zero[bi];
             
+            double tstart = mysecond(); 
             // benchmark selected Laplacian kernel
 #ifdef USE_ACCUR 
             LaplacianFourthOrder(flab_zero, tf); 
 #else
             LaplacianSecondOrder(flab_zero, tf); 
 #endif /* USE_ACCUR */
+            time_zero[i] = mysecond() - tstart; 
         }
-        time_zero[i] = mysecond() - tstart;
     }
 
     // run inft cache benchmark N times
     for (size_t i = 0; i < N; ++i) 
     {
-        double tstart = mysecond();  
 #ifdef USE_TLP 
         #pragma omp parallel for num_threads(4)
 #endif /* USE_TLP */
@@ -264,14 +259,15 @@ int main(int argc, char *argv[])
             sol_inft.loadLab(bf, flab_inft); 
             auto &tf = tmp_inft[bi];
             
+            double tstart = mysecond();  
             // benchmark selected Laplacian kernel 
 #ifdef USE_ACCUR 
             LaplacianFourthOrder(flab_inft, tf); 
 #else 
             LaplacianSecondOrder(flab_inft, tf); 
 #endif /* USE_ACCUR */
+            time_inft[i] = mysecond() - tstart; 
         }
-        time_inft[i] = mysecond() - tstart; 
     }
 
     // pass benchmarking measurements to getRoofline template function 
@@ -289,12 +285,12 @@ int main(int argc, char *argv[])
     printf("10th percentile:\t%f GFlops/s\n", performance_zero[i3]); 
     printf("50th percentile:\t%f GFlops/s\n", performance_zero[i2]); 
     printf("90th percentile:\t%f GFlops/s\n", performance_zero[i1]); 
-    printf("Average performance:\t%fGFlops/s\n\n", roofCoords[8]);
+    printf("Average performance:\t%f GFlops/s\n\n", roofCoords[8]);
     printf("Ranked peak performane for infinite cache after %ld runs: \n", N);
     printf("10th percentile:\t%f GFlops/s\n", performance_inft[i3]); 
     printf("50th percentile:\t%f GFlops/s\n", performance_inft[i2]); 
     printf("90th percentile:\t%f GFlops/s\n", performance_inft[i1]); 
-    printf("Average performance:\t%fGFlops/s\n", roofCoords[9]);
+    printf("Average performance:\t%f GFlops/s\n", roofCoords[9]);
     printf("--------------------------------------------------------------\n");      
 
     // write relevant data to file 
