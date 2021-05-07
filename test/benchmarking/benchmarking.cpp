@@ -18,7 +18,6 @@
 #include <omp.h>
 #include <iostream>
 #include <fstream>
-#include <sys/time.h>
 
 // enable fourth-order CDS, default is second-order CDS 
 //#define USE_ACCUR 
@@ -28,25 +27,7 @@
 //#define USE_TLP
 
 using namespace Cubism;
-
-/** 
- * @brief Timer method relying on system time
- *
- * @rst Timer method which relies on system time. Selected approach varies 
- * depending on whether the OpenMP flag is activated or not. Specific timer
- * method was taken from the computepower.cpp micro-benchmark. 
- * @endrst
- * */
-double mysecond() {
-#ifdef USE_TLP 
-    return omp_get_wtime(); 
-#else 
-    struct timeval tp; 
-    struct timezone tzp; 
-    gettimeofday(&tp, &tzp); 
-    return( (double) tp.tv_sec + (double) tp.tv_usec * 1E-06 );
-#endif /* USE_TLP */
-}
+using Util::Timer; 
 
 /** 
  * @brief Get Roofline ceilings & performance based on benchmark parameters
@@ -95,7 +76,7 @@ void getRoofline(const std::vector<double> &time_zero,
     // compute measured performance for each benchmark run
     for (size_t i = 0; i < time_zero.size(); ++i) {
         performance_zero[i] = 1E-09 * std::pow(64,3) * flopCell / time_zero[i];
-        performance_inft[i] = 1E-09 * std::pow(16,3) * flopCell / time_inft[i];
+        performance_inft[i] = 1E-09 * std::pow(32,3) * flopCell / time_inft[i];
     }
     // sort performance vectors in ascending order 
     std::sort(performance_zero.begin(), performance_zero.end()); 
@@ -149,7 +130,7 @@ int main(int argc, char *argv[])
 
     const MIndex nblocks(1); 
     const MIndex block_cells_zero(64);  // for zero cache benchmark
-    const MIndex block_cells_inft(16);  // for infinite cache benchmark
+    const MIndex block_cells_inft(32);  // for infinite cache benchmark
 
     // identifiers for creating & managing scalar fields
     using SGrid = Grid::Cartesian<double, Mesh, EntityType::Cell, 0>;  
@@ -213,6 +194,7 @@ int main(int argc, char *argv[])
     }
 
     // setup timer & required storage 
+    Timer t; 
     std::vector<double> time_zero(N);           // time per zero cache run 
     std::vector<double> performance_zero(N);    // performance per zero run
     std::vector<double> time_inft(N);           // time per inft cache run
@@ -234,14 +216,14 @@ int main(int argc, char *argv[])
             sol_zero.loadLab(bf, flab_zero); 
             auto &tf = tmp_zero[bi];
             
-            double tstart = mysecond(); 
+            t.start();
             // benchmark selected Laplacian kernel
 #ifdef USE_ACCUR 
             LaplacianFourthOrder(flab_zero, tf); 
 #else
             LaplacianSecondOrder(flab_zero, tf); 
 #endif /* USE_ACCUR */
-            time_zero[i] = mysecond() - tstart; 
+            time_zero[i] = t.stop(); 
         }
     }
 
@@ -258,15 +240,15 @@ int main(int argc, char *argv[])
             const MIndex &bi = bf.getState().block_index;
             sol_inft.loadLab(bf, flab_inft); 
             auto &tf = tmp_inft[bi];
-            
-            double tstart = mysecond();  
+           
+            t.start(); 
             // benchmark selected Laplacian kernel 
 #ifdef USE_ACCUR 
             LaplacianFourthOrder(flab_inft, tf); 
 #else 
             LaplacianSecondOrder(flab_inft, tf); 
 #endif /* USE_ACCUR */
-            time_inft[i] = mysecond() - tstart; 
+            time_inft[i] = t.stop(); 
         }
     }
 
