@@ -69,7 +69,7 @@ void getRoofline(const std::vector<double> &time_zero,
                  std::vector<double> &roofCoords) 
 {
     // specify architecture-dependent limits (Intel Xeon E5-2670 v3)
-    const float maxFreq = 3.1;      // maximum CPU frequency [GHz] 
+    const float maxFreq = 3.2;      // maximum CPU frequency [GHz] 
     const size_t maxCores = 12;     // maximum CPU cores available []
     const float maxBand = 68.0;     // maximum memory bandwidth [GB/s]
     const size_t FMA = 2;           // fused multiply-add effect []
