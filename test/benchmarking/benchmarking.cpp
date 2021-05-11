@@ -75,8 +75,10 @@ void getRoofline(const std::vector<double> &time_zero,
 
     // compute measured performance for each benchmark run
     for (size_t i = 0; i < time_zero.size(); ++i) {
-        performance_zero[i] = 1E-09 * std::pow(64,3) * flopCell / time_zero[i];
-        performance_inft[i] = 1E-09 * std::pow(32,3) * flopCell / time_inft[i];
+        performance_zero[i] = 1E-09 * std::pow(64,3) * std::pow(4,3) 
+                                                     * flopCell / time_zero[i];
+        performance_inft[i] = 1E-09 * std::pow(32,3) * std::pow(4,3) 
+                                                     * flopCell / time_inft[i];
     }
     // sort performance vectors in ascending order 
     std::sort(performance_zero.begin(), performance_zero.end()); 
@@ -128,7 +130,7 @@ int main(int argc, char *argv[])
     using Mesh = Mesh::StructuredUniform<double, IRange::Dim>;
     using PointType = typename Mesh::PointType; 
 
-    const MIndex nblocks(1); 
+    const MIndex nblocks(4); 
     const MIndex block_cells_zero(64);  // for zero cache benchmark
     const MIndex block_cells_inft(32);  // for infinite cache benchmark
 
@@ -140,7 +142,11 @@ int main(int argc, char *argv[])
     using Stencil = typename FieldLab::StencilType;
    
     // define number of kernel calls to be executed in benchmarking
-    size_t N = ((argc == 2) ? std::atoi(argv[1]) : 100);     
+    size_t N = ((argc == 2) ? std::atoi(argv[1]) : 100);
+    // define number of threads to be utilized 
+#ifdef USE_TLP
+    size_t nthreads = 4; 
+#endif /* USE_TLP */
     
     // map the blocks & cells on domain [0,1]^3 [m] 
     SGrid sol_zero(nblocks, block_cells_zero);  // solution storage zero cache
@@ -195,9 +201,9 @@ int main(int argc, char *argv[])
 
     // setup timer & required storage 
     Timer t; 
-    std::vector<double> time_zero(N);           // time per zero cache run 
+    std::vector<double> time_zero(N, 0);           // time per zero cache run 
     std::vector<double> performance_zero(N);    // performance per zero run
-    std::vector<double> time_inft(N);           // time per inft cache run
+    std::vector<double> time_inft(N, 0);           // time per inft cache run
     std::vector<double> performance_inft(N);    // performance per inft run
     std::vector<double> roofCoords(10);         // coords. for roofline model
     
@@ -205,7 +211,7 @@ int main(int argc, char *argv[])
     for (size_t i = 0; i < N; ++i) 
     {   
 #ifdef USE_TLP
-        #pragma omp parallel for num_threads(4)
+        #pragma omp parallel for num_threads(nthreads)
 #endif /* USE TLP_ */
         // loop through blocks in the grid
         for (auto f : sol_zero) 
@@ -223,15 +229,19 @@ int main(int argc, char *argv[])
 #else
             LaplacianSecondOrder(flab_zero, tf); 
 #endif /* USE_ACCUR */
-            time_zero[i] = t.stop(); 
+            time_zero[i] += t.stop(); 
         }
+        // divide time by number of threads -- essentially average out
+#ifdef USE_TLP 
+        time_zero[i] /= nthreads; 
+#endif /* USE_TLP */
     }
 
     // run inft cache benchmark N times
     for (size_t i = 0; i < N; ++i) 
     {
 #ifdef USE_TLP 
-        #pragma omp parallel for num_threads(4)
+        #pragma omp parallel for num_threads(nthreads)
 #endif /* USE_TLP */
         // loop through blocks in the grid
         for (auto f : sol_inft)
@@ -248,8 +258,12 @@ int main(int argc, char *argv[])
 #else 
             LaplacianSecondOrder(flab_inft, tf); 
 #endif /* USE_ACCUR */
-            time_inft[i] = t.stop(); 
+            time_inft[i] += t.stop(); 
         }
+        // divide time by number of threads -- essentially average out
+#ifdef USE_TLP
+       time_inft[i] /= nthreads; 
+#endif /* USE_TLP */ 
     }
 
     // pass benchmarking measurements to getRoofline template function 
