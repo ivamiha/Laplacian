@@ -263,7 +263,7 @@ int main(int argc, char *argv[])
     printf("50th percentile:\t%f GFlops/s\n", performance_zero[i2]); 
     printf("90th percentile:\t%f GFlops/s\n", performance_zero[i1]); 
     printf("Average performance:\t%f GFlops/s\n\n", roofCoords[8]);
-    printf("Ranked peak performane for infinite cache after %ld runs: \n", N);
+    printf("Ranked peak performance for infinite cache after %ld runs: \n", N);
     printf("10th percentile:\t%f GFlops/s\n", performance_inft[i3]); 
     printf("50th percentile:\t%f GFlops/s\n", performance_inft[i2]); 
     printf("90th percentile:\t%f GFlops/s\n", performance_inft[i1]); 
