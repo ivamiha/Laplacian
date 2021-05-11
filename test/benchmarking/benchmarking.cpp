@@ -8,7 +8,6 @@
 #include "Cubism/Grid/Cartesian.h"
 #include "Cubism/Mesh/StructuredUniform.h"
 #include "Cubism/Block/Field.h"
-#include "Cubism/Util/Timer.h"
 
 #include "LaplacianSecondOrder.h"
 #include "LaplacianFourthOrder.h"
@@ -23,11 +22,8 @@
 //#define USE_ACCUR 
 // enable AVX vector extension based calculations, default is SSE
 //#define USE_AVX
-// enable OpenMP TLP, default is single core
-//#define USE_TLP
 
 using namespace Cubism;
-using Util::Timer; 
 
 /** 
  * @brief Get Roofline ceilings & performance based on benchmark parameters
@@ -142,11 +138,9 @@ int main(int argc, char *argv[])
     using Stencil = typename FieldLab::StencilType;
    
     // define number of kernel calls to be executed in benchmarking
-    size_t N = ((argc == 2) ? std::atoi(argv[1]) : 100);
+    size_t N = 100; 
     // define number of threads to be utilized 
-#ifdef USE_TLP
-    size_t nthreads = 4; 
-#endif /* USE_TLP */
+    size_t nthreads = ((argc == 2) ? std::atoi(argv[1]) : 1); 
     
     // map the blocks & cells on domain [0,1]^3 [m] 
     SGrid sol_zero(nblocks, block_cells_zero);  // solution storage zero cache
@@ -200,7 +194,6 @@ int main(int argc, char *argv[])
     }
 
     // setup timer & required storage 
-    Timer t; 
     std::vector<double> time_zero(N, 0);           // time per zero cache run 
     std::vector<double> performance_zero(N);    // performance per zero run
     std::vector<double> time_inft(N, 0);           // time per inft cache run
@@ -210,9 +203,7 @@ int main(int argc, char *argv[])
     // run zero cache benchmark N times 
     for (size_t i = 0; i < N; ++i) 
     {   
-#ifdef USE_TLP
         #pragma omp parallel for num_threads(nthreads)
-#endif /* USE TLP_ */
         // loop through blocks in the grid
         for (auto f : sol_zero) 
         {
@@ -221,28 +212,22 @@ int main(int argc, char *argv[])
             const MIndex &bi = bf.getState().block_index; 
             sol_zero.loadLab(bf, flab_zero); 
             auto &tf = tmp_zero[bi];
-            
-            t.start();
+
             // benchmark selected Laplacian kernel
+            double start = omp_get_wtime();
 #ifdef USE_ACCUR 
             LaplacianFourthOrder(flab_zero, tf); 
 #else
             LaplacianSecondOrder(flab_zero, tf); 
 #endif /* USE_ACCUR */
-            time_zero[i] += t.stop(); 
+            time_zero[i] += (omp_get_wtime() - start) / nthreads; 
         }
-        // divide time by number of threads -- essentially average out
-#ifdef USE_TLP 
-        time_zero[i] /= nthreads; 
-#endif /* USE_TLP */
     }
 
     // run inft cache benchmark N times
     for (size_t i = 0; i < N; ++i) 
     {
-#ifdef USE_TLP 
         #pragma omp parallel for num_threads(nthreads)
-#endif /* USE_TLP */
         // loop through blocks in the grid
         for (auto f : sol_inft)
         {
@@ -250,20 +235,16 @@ int main(int argc, char *argv[])
             const MIndex &bi = bf.getState().block_index;
             sol_inft.loadLab(bf, flab_inft); 
             auto &tf = tmp_inft[bi];
-           
-            t.start(); 
+          
             // benchmark selected Laplacian kernel 
+            double start = omp_get_wtime(); 
 #ifdef USE_ACCUR 
             LaplacianFourthOrder(flab_inft, tf); 
 #else 
             LaplacianSecondOrder(flab_inft, tf); 
 #endif /* USE_ACCUR */
-            time_inft[i] += t.stop(); 
+            time_inft[i] += (omp_get_wtime() - start) / nthreads; 
         }
-        // divide time by number of threads -- essentially average out
-#ifdef USE_TLP
-       time_inft[i] /= nthreads; 
-#endif /* USE_TLP */ 
     }
 
     // pass benchmarking measurements to getRoofline template function 
