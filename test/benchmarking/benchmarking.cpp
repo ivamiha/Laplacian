@@ -21,7 +21,7 @@
 // enable fourth-order CDS, default is second-order CDS 
 //#define USE_ACCUR 
 // enable AVX vector extension based calculations, default is SSE
-//#define USE_AVX
+#define USE_AVX
 
 using namespace Cubism;
 
@@ -193,18 +193,20 @@ int main(int argc, char *argv[])
         LaplacianSecondOrder(flab_zero, tf); 
     }
 
-    // setup timer & required storage 
-    std::vector<double> time_zero(N, 0);           // time per zero cache run 
+    // setup required storage for timing & roofline
+    std::vector<double> start(nthreads, 0);     // per-thread start time
+    std::vector<double> time(nthreads, 0);      // per-thread measured time
+    std::vector<double> time_zero(N, 0);        // time per zero cache run 
     std::vector<double> performance_zero(N);    // performance per zero run
-    std::vector<double> time_inft(N, 0);           // time per inft cache run
+    std::vector<double> time_inft(N, 0);        // time per inft cache run
     std::vector<double> performance_inft(N);    // performance per inft run
     std::vector<double> roofCoords(10);         // coords. for roofline model
     
     // run zero cache benchmark N times 
     for (size_t i = 0; i < N; ++i) 
     {   
-        #pragma omp parallel for num_threads(nthreads)
         // loop through blocks in the grid
+        #pragma omp parallel for num_threads(nthreads)
         for (auto f : sol_zero) 
         {
             // reference fields & load data into flab object for current block
@@ -212,39 +214,49 @@ int main(int argc, char *argv[])
             const MIndex &bi = bf.getState().block_index; 
             sol_zero.loadLab(bf, flab_zero); 
             auto &tf = tmp_zero[bi];
+            
+            const int tid = omp_get_thread_num();
 
             // benchmark selected Laplacian kernel
-            double start = omp_get_wtime();
+            start[tid] = omp_get_wtime();
 #ifdef USE_ACCUR 
             LaplacianFourthOrder(flab_zero, tf); 
 #else
             LaplacianSecondOrder(flab_zero, tf); 
 #endif /* USE_ACCUR */
-            time_zero[i] += (omp_get_wtime() - start) / nthreads; 
+            time[tid] += omp_get_wtime()- start[tid]; 
         }
+        // compute average execution time across all threads
+        time_zero[i] = *max_element(std::begin(time), std::end(time));
+        for (size_t t = 0; t < nthreads; ++t) time[t] = 0; 
     }
 
     // run inft cache benchmark N times
     for (size_t i = 0; i < N; ++i) 
     {
-        #pragma omp parallel for num_threads(nthreads)
         // loop through blocks in the grid
+        #pragma omp parallel for num_threads(nthreads)
         for (auto f : sol_inft)
         {
             const FieldType &bf = *f; 
             const MIndex &bi = bf.getState().block_index;
             sol_inft.loadLab(bf, flab_inft); 
             auto &tf = tmp_inft[bi];
-          
+         
+            const int tid = omp_get_thread_num(); 
+
             // benchmark selected Laplacian kernel 
-            double start = omp_get_wtime(); 
+            start[tid] = omp_get_wtime(); 
 #ifdef USE_ACCUR 
             LaplacianFourthOrder(flab_inft, tf); 
 #else 
             LaplacianSecondOrder(flab_inft, tf); 
 #endif /* USE_ACCUR */
-            time_inft[i] += (omp_get_wtime() - start) / nthreads; 
+            time[tid] += omp_get_wtime() - start[tid]; 
         }
+        // compute average execution time across all threads
+        time_inft[i] = *max_element(std::begin(time), std::end(time)); 
+        for (size_t t = 0; t < nthreads; ++t) time[t] = 0; 
     }
 
     // pass benchmarking measurements to getRoofline template function 
