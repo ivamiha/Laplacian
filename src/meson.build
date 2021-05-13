@@ -7,7 +7,9 @@
 # executable for non-MPI files
 executable('main', 
   files('main.cpp'),
-  dependencies: [cubismnova_dep, mpi_dep],
+  cpp_args: '-fopenmp',
+  link_args: '-fopenmp',
+  dependencies: [cubismnova_dep, mpi_dep, omp_dep],
   include_directories: inc, 
   install: false, 
 )
