@@ -19,7 +19,7 @@
 #include <fstream>
 
 // enable fourth-order CDS, default is second-order CDS
-#define USE_ACCUR
+//#define USE_ACCUR
 
 namespace 
 {
@@ -97,7 +97,11 @@ void OVS()
         }
 
         // define stencil 
+#ifdef USE_ACCUR
         const Stencil s(-2, 3, true); 
+#else
+        const Stencil s(-1, 2, false); 
+#endif /* USE_ACCUR */  
 
         FieldLab flab; 
         flab.allocate(s, sol[0].getIndexRange()); 
