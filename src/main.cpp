@@ -66,17 +66,25 @@ int main(int argc, char *argv[])
         // loop over cells in block mesh using cell index
         for (auto &ci : bm[EntityType::Cell]) {
             const PointType x = bm.getCoordsCell(ci); 
-            bf[ci] = std::cos(fac * x[0]) * std::cos(fac * x[1]) * 
-                     std::sin(fac * x[2]);
+            bf[ci] = std::fabs( std::cos(fac * x[0]) * std::cos(fac * x[1]) * 
+                     std::sin(fac * x[2]) );
         }
     };
 
-    // initialize grid for both u and v scalar fields
+    // initialize grid using IC function for u field
     for (auto bf : u) {
         IC(*bf); 
     }
-    for (auto bf : v) {
-        IC(*bf);
+    // initialize grid of v field to be 1 - u (u + v = 1 at all points)
+    for (auto f : v) {
+        const FieldType &bf = *f;
+        const MIndex &bi = bf.getState().block_index;
+        auto uf = u[bi]; 
+        auto vf = v[bi]; 
+        // loop over cells in block field using cell index
+        for (auto &ci : bf.getIndexRange()) {
+            vf[ci] = 1.0 - uf[ci];
+        }
     }
     // dump the ICs into HDF5 files using single-precision
     timer.start(); 
@@ -85,12 +93,12 @@ int main(int argc, char *argv[])
     double tw = timer.stop(); 
 
     // define stencil and allocate FieldLabs
+    FieldLab ulab, vlab;
 #ifdef USE_ACCUR
     const Stencil s(-2, 3, true); 
 #else
     const Stencil s(-1, 2, false);
 #endif /* USE_ACCUR */
-    FieldLab ulab, vlab; 
     ulab.allocate(s, u[0].getIndexRange());
     vlab.allocate(s, v[0].getIndexRange()); 
     auto ufindex = u.getIndexFunctor(); 
@@ -133,12 +141,12 @@ int main(int argc, char *argv[])
             for (auto &ci : bf.getIndexRange()) {
                 // add reaction & feed-rate terms to tmp fields
                 utf[ci] = Du * utf[ci] 
-                        + (F * (1 - uf[ci]) - uf[ci] * vf[ci] * vf[ci]);
+                        + F * (1 - uf[ci]) - uf[ci] * vf[ci] * vf[ci];
                 vtf[ci] = Dv * vtf[ci] 
-                        + (uf[ci] * vf[ci] * vf[ci] - vf[ci] * (F + k)); 
+                        + uf[ci] * vf[ci] * vf[ci] - vf[ci] * (F + k); 
                 // advance current solutions
-                uf[ci] += utf[ci] / dt; 
-                vf[ci] += vtf[ci] / dt; 
+                uf[ci] += dt * utf[ci]; 
+                vf[ci] += dt * vtf[ci]; 
             } 
         }
     } 
