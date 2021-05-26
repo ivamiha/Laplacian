@@ -19,6 +19,7 @@
 struct ringBuff {
     size_t head;        // current writing position    
     size_t capacity;    // maximum size of created ring buffer
+    size_t offset;      // offset required to enable convenient indexing 
     double **data;      // pointer to array of pointers to doubles
 }; 
 
@@ -33,6 +34,7 @@ ringBuff_t* ringCreate(size_t _capacity) {
 
     ring -> head = 0; 
     ring -> capacity = _capacity; 
+    ring -> offset = (_capacity - 1) / 2; 
     ring -> data = new double*[_capacity];
 
     return ring; 
@@ -46,6 +48,13 @@ ringBuff_t* ringCreate(size_t _capacity) {
 void ringEnqueue(ringBuff_t *ring, double *item) {
     ring -> data[ring -> head] = item; 
     ring -> head = (ring -> head + 1) % ring -> capacity;
+}
+
+double* getSlice(ringBuff_t *ring, size_t index) {
+    size_t realIndex = (ring -> head + ring -> offset + index) % 
+                                                    ring -> capacity; 
+
+    return (ring -> data[realIndex]); 
 }
 
 /** 

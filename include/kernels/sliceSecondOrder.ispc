@@ -40,7 +40,7 @@ export inline void sliceSecondOrder(
             double zp1 = psol[i + j * Sx + SxSy];       // z plus 1
             double zm1 = psol[i + j * Sx - SxSy];       // z minus 1 
 
-            // apply second-order CDS for indices in current SIMD lane
+            // apply second-order CDS
             const double ddx = pih2[0] * (xp1 - 2 * c + xm1); 
             const double ddy = pih2[1] * (yp1 - 2 * c + ym1); 
             const double ddz = pih2[2] * (zp1 - 2 * c + zm1);

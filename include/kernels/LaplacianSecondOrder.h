@@ -9,7 +9,7 @@
 
 #include "sliceSecondOrder.h"
 
-// enable ISPC DLP, default is CubismNova's flat indexing
+// enable ISPC DLP, default is naive sliced indexing approach
 //#define USE_DLP
 
 /** 
