@@ -138,10 +138,10 @@ private:
         for (const auto &p : slab) {
             if (0 == binfo_.side) {
                 // apply the indexing from right to left pattern
-                lab[start - p] = h * value + lab[start - p + 1];
+                lab[start - p] = h * value_ + lab[start - p + 1];
             } else {
                 // apply the indexing from left to right pattern
-                lab[start + p] = h * value + lab[start + p - 1];
+                lab[start + p] = h * value_ + lab[start + p - 1];
             }
         }
     }
