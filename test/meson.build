@@ -6,3 +6,4 @@
 
 subdir('codeVerification')
 subdir('benchmarking')
+subdir('BC')
