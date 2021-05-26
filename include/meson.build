@@ -4,4 +4,7 @@
 # Description: Meson build definition
 # Copyright 2021 ETH Zurich. All Rights Reserved.
 
-inc = include_directories('.')
+inc = include_directories(
+        'kernels',
+        'BC'
+      )
