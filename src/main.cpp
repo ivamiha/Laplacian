@@ -33,7 +33,6 @@ int main(int argc, char *argv[])
 
     // identifiers for creating & managing scalar fields 
     using SGrid = Grid::Cartesian<double, Mesh, EntityType::Cell, 0>; 
-    using DataType = typename SGrid::DataType; 
     using FieldType = typename SGrid::BaseType; 
     using FieldLab = Block::FieldLab<typename FieldType::FieldType>;
     using Stencil = typename FieldLab::StencilType;
@@ -50,7 +49,7 @@ int main(int argc, char *argv[])
     SGrid vtmp(nblocks, block_cells);   // temporary field for new v solution
 
     // define simulation & Gray-Scott variables
-    double time = 100.0;            // simulation duration [s]
+    double time = 3500.0;           // simulation duration [s]
     double F = 0.04;                // feed-rate (permeability to U) [m^2]
     double k = 0.06;                // feed-rate minus permeability to V [m^2]
     double Du = 0.00002;            // diffusivity of U species [m^2/s]
@@ -59,32 +58,31 @@ int main(int argc, char *argv[])
 
     Timer timer;
 
-    // function for writing ICs into input block field within grid
-    auto IC = [](FieldType &bf) {
-        const DataType fac = 2 * M_PI; 
+    // function for writing ICs into input block field within grid (Trefethen)
+    auto IC = [](FieldType &bf, const size_t mode) {
         const Mesh &bm = *bf.getState().mesh;
-        // loop over cells in block mesh using cell index
-        for (auto &ci : bm[EntityType::Cell]) {
-            const PointType x = bm.getCoordsCell(ci); 
-            bf[ci] = std::fabs( std::cos(fac * x[0]) * std::cos(fac * x[1]) * 
-                     std::sin(fac * x[2]) );
+        if (mode == 0) {    //  ICs for species U 
+            for (auto &ci : bm[EntityType::Cell]) {
+                const PointType x = bm.getCoordsCell(ci);
+                bf[ci] = 1 - std::exp(-80 * (pow(x[0] + 0.05, 2) 
+                                           + pow(x[1] + 0.02, 2)));
+            }
+        } else {           // ICs for species V
+            for (auto &ci : bm[EntityType::Cell]) {
+                const PointType x = bm.getCoordsCell(ci);
+                bf[ci] = std::exp(-80 * (pow(x[0] - 0.05, 2) 
+                                       + pow(x[1] - 0.02, 2)));
+            }
         }
     };
 
     // initialize grid using IC function for u field
     for (auto bf : u) {
-        IC(*bf); 
+        IC(*bf, 0); 
     }
-    // initialize grid of v field to be 1 - u (u + v = 1 at all points)
-    for (auto f : v) {
-        const FieldType &bf = *f;
-        const MIndex &bi = bf.getState().block_index;
-        auto uf = u[bi]; 
-        auto vf = v[bi]; 
-        // loop over cells in block field using cell index
-        for (auto &ci : bf.getIndexRange()) {
-            vf[ci] = 1.0 - uf[ci];
-        }
+    // initialize grid using IC function for v field
+    for (auto bf : v) {
+        IC(*bf, 1);
     }
     // dump the ICs into HDF5 files using single-precision
     timer.start(); 
@@ -104,9 +102,9 @@ int main(int argc, char *argv[])
     auto ufindex = u.getIndexFunctor(); 
     auto vfindex = v.getIndexFunctor();
 
-    // define timestep as half of minimum dt from stability analysis
+    // define timestep as minimum dt from 3D stability analysis
     const PointType h = u.getMesh().getCellSize(0);
-    const double dt = Fo * h[0] * h[0] / (4 * std::max(Du, Dv));
+    const double dt = Fo * h[0] * h[0] / (6 * std::max(Du, Dv));
     
     timer.start(); 
     // loop through time
@@ -158,8 +156,20 @@ int main(int argc, char *argv[])
     IO::CartesianWriteHDF<float>("solv", "sol V", v, 0); 
     tw += timer.stop(); 
 
+    // print out cell values for the solution -- sanity check
+    for (auto f : u) {
+        const FieldType &bf = *f;
+        const MIndex &bi = bf.getState().block_index;
+        auto &uf = u[bi];
+        auto &vf = v[bi];
+        for (auto &ci : bf.getIndexRange()) {
+            printf("u-value:\t%f\n", uf[ci]);
+            printf("v-value:\t%f\n", vf[ci]);
+        }
+    } 
+
     printf("ncells:\t\t%f\nwrite_time:\t%f [s]\nsim_time:\t%f [s]\n",
-            std::pow(static_cast<int>(nblocks.prod())/2, 3),
+            static_cast<int>(nblocks.prod()) * std::pow(32, 3),
             tw,
             ts); 
     
