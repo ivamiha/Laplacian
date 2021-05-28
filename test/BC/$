@@ -1,7 +1,7 @@
 // File       : NeumannTest.cpp
-// Created    : Thu May 27 2021 02:35:02 PM (+0200)
+// Created    : Thu May 27 2021 10:57:10 AM (+0200)
 // Author     : Ivan Mihajlovic Milin
-// Description: Neumann boundary tests
+// Description: Neumann boundary test
 // Copyright 2021 ETH Zurich. All Rights Reserved.
 
 #include "Cubism/Block/FieldLab.h"
@@ -11,14 +11,14 @@
 
 #include "Neumann.h"
 
-#include <gtest/gtest.h>
 #include <string>
+#include <gtest/gtest.h>
 
 namespace
 {
 using namespace Cubism;
 
-// template & test for non-tensorial Neumann BCs
+// test non-tensorial Neumann boundary conditions
 template <size_t dir, typename FieldLab, typename IRange, typename MIndex>
 void check(const FieldLab &lab,
            const IRange &range,
@@ -45,26 +45,23 @@ TEST(BC, Neumann)
     using IRange = Core::IndexRange<3>;
     using MIndex = typename IRange::MultiIndex;
     using Mesh = Mesh::StructuredUniform<double, IRange::Dim>;
-    using GridType = Grid::Cartesian<double, Mesh, EntityType::Cell, 0>;
-    using FieldType = typename GridType::BaseType;
+    using Grid = Grid::Cartesian<double, Mesh, EntityType::Cell, 0>;
+    using DataType = typename Grid::DataType;
+    using FieldType = typename Grid::BaseType;
     using FieldLab = Block::FieldLab<typename FieldType::FieldType>;
     using Stencil = typename FieldLab::StencilType;
     using BCVector = typename FieldType::BCVector;
     using BC = BC::Neumann<FieldLab>;
 
     const MIndex nblocks(1);
-    const MIndex block_cells(1);
-    GridType field(nblocks, block_cells);
-
-    auto IC = [](FieldType &bf) {
-        const Mesh &bm = *bf.getState().mesh;
-        for (auto &ci : bm[EntityType::Cell]) {
-            bf[ci] = 1.0;
-        }
-    };
+    const MIndex block_cells(32);
+    Grid field(nblocks, block_cells);
 
     for (auto bf : field) {
-        IC(*bf);
+        const Mesh &bm = bf->getState().mesh;
+        for (auto ci : bm[EntityType::Cell]) {
+            bf[ci] = 1.0;
+        }
     }
 
     BCVector bcv;
@@ -78,10 +75,9 @@ TEST(BC, Neumann)
     EXPECT_EQ(bcv[0]->name(), std::string("Neumann"));
 
     FieldLab lab;
-    const Stencil s(-3, 4, false);
+    const Stencil s(-1, 2, false);
     lab.allocate(s, field[0].getIndexRange());
-    auto findex = field.getIndexFunctor();
-    lab.loadData(MIndex(0), findex, bcv);
+    lab.loadData(&bcv);
     const auto &range = lab.getActiveRange();
 
     check<0>(lab, range, MIndex(0), range.getExtent(), 1, 1);
@@ -91,14 +87,16 @@ TEST(BC, Neumann)
     for (auto bc : bcv) {
         delete bc;
     }
-
-// template and test for tensorial Neumann BCs
 }
-} // namespace
 
-int main(void) {
-    ::testing::InitGoogleTest();
+// test tensorial Neumann bondary conditions
+
+int main void()
+{
     int tests = RUN_ALL_TESTS();
 
-    return tests;
+    return int;
 }
+
+
+} // namespace

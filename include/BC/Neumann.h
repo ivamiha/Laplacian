@@ -32,7 +32,7 @@ public:
     /** 
      * @brief Main constructor
      * @param dir Direction in which to apply the boundary
-     * @param side Index along direction ``dir``
+     * @param side On which side along direction ``dir``
      * @param val Value of derivative at boundary
      */
     Neumann(const size_t dir, const size_t side, const DataType &val)
@@ -45,7 +45,7 @@ public:
      * @brief Apply boundary condition
      * @param lab FieldLab on which the boundary is applied
      */
-    void operator()(Lab &lab) override { apply_lab; }
+    void operator()(Lab &lab) override { apply_(lab); }
 
     /** 
      * @brief Name of boundary condition
@@ -99,15 +99,13 @@ private:
             if (stencil.isTensorial()) {
                 start = sbegin;
             } else {
-                // on the left boundary we loop right to left for Neumann
-                start[binfo_.dir] = -1.0;
+                start[binfo_.dir] = sbegin[binfo_.dir];
             }
         } else {
             extent[binfo_.dir] = send[binfo_.dir] - 1;
             if (stencil.isTensorial()) {
                 start = sbegin;
             }
-            // on the right boundary we loop left to right for Neumann
             start[binfo_.dir] = lab.getActiveRange().getExtent()[binfo_.dir];
         }
 
@@ -119,29 +117,33 @@ private:
         const size_t Ny = lab.getActiveRange().getExtent()[1];
         const size_t Nz = lab.getActiveRange().getExtent()[2]; 
         // extract grid size at desired point in desired direction ``dir``
+        
+        DataType h;
         if (0 == binfo_.side) {
-            // first cell in the lab contains desired grid size
-            const DataType h = m->getCellSize(0)[binfo_.dir];
-        } else {
-            // access required cell based on specified ``dir``
+            // first cell in field contains desired grid size
+            h = m->getCellSize(0)[binfo_.dir];
+        }
+        else {
+            // access requried cell based on specified ``dir``
             if (0 == binfo_.dir) {
-                const DataType h = m->getCellSize(Nx)[binfo_.dir];
-            } 
+                h = m->getCellSize(Nx - 1)[binfo_.dir];
+            }
             else if (1 == binfo_.dir) {
-                const DataType h = m->getCellSize(Nx * Ny)[binfo_.dir]; 
+                h = m->getCellSize(Nx * Ny - 1)[binfo_.dir];
             } else {
-                const DataType h = m->getCellSize(Nx * Ny * Nz)[binfo_.dir];
+                h = m->getCellSize(Nx * Ny * Nz - 1)[binfo_.dir];
             }
         }
+
         // generate array of size ``extent`` and loop through all elements 
         const IndexRangeType slab(extent);
         for (const auto &p : slab) {
             if (0 == binfo_.side) {
-                // apply the indexing from right to left pattern
-                lab[start - p] = h * value_ + lab[start - p + 1];
+                // loop right to left, reference values on right
+                lab[start + p] = value_ * h + lab[start + p + 1];
             } else {
-                // apply the indexing from left to right pattern
-                lab[start + p] = h * value_ + lab[start + p - 1];
+                // loop left to right, references values on left
+                lab[start + p] = value_ * h + lab[start + p - 1];
             }
         }
     }

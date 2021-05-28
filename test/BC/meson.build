@@ -4,7 +4,7 @@
 # Description: Meson unit test build definition
 # Copyright 2021 ETH Zurich. All Rights Reserved.
 
-e = executable('benchmarking',
+e = executable('NeumanTests',
   files('NeumannTest.cpp'),
   dependencies: [cubismnova_dep, mpi_dep, gtest_dep],
   include_directories: inc, 
