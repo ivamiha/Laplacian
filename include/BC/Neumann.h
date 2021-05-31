@@ -17,7 +17,12 @@ NAMESPACE_BEGIN(BC)
  * @brief Neumann BC
  * @tparam Lab Type of ``FieldLab``
  *
- * @rst Constant value Neumann boundary condition
+ * @rst Constant value Neumann boundary condition. Currently, the Neumann class
+ * does not support tensorial stencils. Nonetheless, zero and non-zero Neumann
+ * BCs are supported on both uniform and stretched grids with non-tensorial
+ * stencils. Convention for signs of derivative at boundary:
+ * - +ve gradient denotes "inflow" @ boundary (higher value in adjacent halo);
+ * - -ve gradient denotes "outflow" @ boundary (lower value in adjacent halo).
  * @endrst 
  * */
 template <typename Lab>
@@ -71,6 +76,7 @@ private:
     using Index = typename MultiIndex::DataType; 
     using Stencil = typename Lab::StencilType;
     using FieldType = typename Lab::FieldType;
+    using Vector = Core::Vector<long int, 3>;
 
     DataType value_;
 
@@ -86,7 +92,8 @@ private:
 
         MultiIndex extent;
         if (stencil.isTensorial()) {
-            extent = lab.getActiveLabRange().getExtent();
+            // TODO: extend BC capabilities to tensorial
+            return; // nothing to do; stencil is tensorial
         } else {
             extent = lab.getActiveRange().getExtent();
         }
@@ -96,16 +103,14 @@ private:
         MultiIndex start(0);
         if (0 == binfo_.side) {
             extent[binfo_.dir] = -sbegin[binfo_.dir];
-            if (stencil.isTensorial()) {
-                start = sbegin;
-            } else {
-                start[binfo_.dir] = sbegin[binfo_.dir];
-            }
+            // begin from last halo cell; enable indexing from right to left
+            start[0] = lab.getActiveRange().getExtent()[0] - 1;
+            start[1] = lab.getActiveRange().getExtent()[1] - 1;
+            start[2] = lab.getActiveRange().getExtent()[2] - 1;
+            start[binfo_.dir] = -1;
         } else {
             extent[binfo_.dir] = send[binfo_.dir] - 1;
-            if (stencil.isTensorial()) {
-                start = sbegin;
-            }
+            // begin from first halo cell; traditional left to right indexing
             start[binfo_.dir] = lab.getActiveRange().getExtent()[binfo_.dir];
         }
 
@@ -115,9 +120,9 @@ private:
         // save extents of the field to be used for accessing desired cell
         const size_t Nx = lab.getActiveRange().getExtent()[0];
         const size_t Ny = lab.getActiveRange().getExtent()[1];
-        const size_t Nz = lab.getActiveRange().getExtent()[2]; 
+        const size_t Nz = lab.getActiveRange().getExtent()[2];
+
         // extract grid size at desired point in desired direction ``dir``
-        
         DataType h;
         if (0 == binfo_.side) {
             // first cell in field contains desired grid size
@@ -127,23 +132,41 @@ private:
             // access requried cell based on specified ``dir``
             if (0 == binfo_.dir) {
                 h = m->getCellSize(Nx - 1)[binfo_.dir];
-            }
-            else if (1 == binfo_.dir) {
+            } else if (1 == binfo_.dir) {
                 h = m->getCellSize(Nx * Ny - 1)[binfo_.dir];
             } else {
                 h = m->getCellSize(Nx * Ny * Nz - 1)[binfo_.dir];
             }
         }
 
-        // generate array of size ``extent`` and loop through all elements 
+        // define vectors to represent unit stride in a given ``dir``
+        const Vector unitx = {1, 0, 0};
+        const Vector unity = {0, 1, 0};
+        const Vector unitz = {0, 0, 1};
+
+        // generate array of size ``extent`` and loop through all elements
+        // if ``dir`` = 0: loop right-left (-p) & reference values @ right (+1)
+        // if ``dir`` = 1: loop left-right (+p) & reference values @ left (-1)
         const IndexRangeType slab(extent);
         for (const auto &p : slab) {
-            if (0 == binfo_.side) {
-                // loop right to left, reference values on right
-                lab[start + p] = value_ * h + lab[start + p + 1];
+            if (0 == binfo_.dir) {
+                if (0 == binfo_.side) {
+                    lab[start - p] = value_ * h + lab[start - p + unitx];
+                } else {
+                    lab[start + p] = value_ * h + lab[start + p - unitx];
+                }
+            } else if (1 == binfo_.dir) {
+                if (0 == binfo_.side) {
+                    lab[start - p] = value_ * h + lab[start - p + unity];
+                } else {
+                    lab[start + p] = value_ * h + lab[start + p - unity];
+                }
             } else {
-                // loop left to right, references values on left
-                lab[start + p] = value_ * h + lab[start + p - 1];
+                if (0 == binfo_.side) {
+                    lab[start - p] = value_ * h + lab[start - p + unitz];
+                } else {
+                    lab[start + p] = value_ * h + lab[start + p - unitz];
+                }
             }
         }
     }
