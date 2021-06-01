@@ -193,38 +193,8 @@ int main(int argc, char *argv[])
     std::vector<double> performance_inft(N);    // performance per inft run
     std::vector<double> roofCoords(10);         // coords. for roofline model
 
-    // run zero cache benchmark N times
-    for (size_t i = 0; i < N; ++i)
-    {
-        // loop through blocks in the grid
-#pragma omp parallel num_threads(nthreads)
-        {
-            const int tid = omp_get_thread_num();
-#pragma omp for nowait
-            for (auto f : sol_zero)
-            {
-                const FieldType &bf = *f;
-                const MIndex &bi = bf.getState().block_index;
-                sol_zero.loadLab(bf, flab_zero);
-                auto &tf = tmp_zero[bi];
-
-                // benchmark selected Laplacian kernel
-                start[tid] = omp_get_wtime();
-#ifdef USE_ACCUR
-                LaplacianFourthOrder(flab_zero, tf);
-#else
-                LaplacianSecondOrder(flab_zero, tf);
-#endif /* USE_ACCUR */
-                time[tid] += omp_get_wtime()- start[tid];
-            }
-        }
-        // compute average execution time across all threads
-        time_zero[i] = *max_element(std::begin(time), std::end(time));
-        for (size_t t = 0; t < nthreads; ++t) time[t] = 0;
-    }
-
     // run inft cache benchmark N times
-    for (size_t i = 0; i < N; ++i) 
+    for (size_t i = 0; i < N; ++i)
     {
         // loop through blocks in the grid
 #pragma omp parallel num_threads(nthreads)
@@ -245,11 +215,41 @@ int main(int argc, char *argv[])
 #else
                 LaplacianSecondOrder(flab_inft, tf);
 #endif /* USE_ACCUR */
-                time[tid] += omp_get_wtime() - start[tid];
+                time[tid] += omp_get_wtime()- start[tid];
             }
         }
         // compute average execution time across all threads
         time_inft[i] = *max_element(std::begin(time), std::end(time));
+        for (size_t t = 0; t < nthreads; ++t) time[t] = 0;
+    }
+
+    // run zero cache benchmark N times
+    for (size_t i = 0; i < N; ++i) 
+    {
+        // loop through blocks in the grid
+#pragma omp parallel num_threads(nthreads)
+        {
+            const int tid = omp_get_thread_num();
+#pragma omp for nowait
+            for (auto f : sol_zero)
+            {
+                const FieldType &bf = *f;
+                const MIndex &bi = bf.getState().block_index;
+                sol_zero.loadLab(bf, flab_zero);
+                auto &tf = tmp_zero[bi];
+
+                // benchmark selected Laplacian kernel
+                start[tid] = omp_get_wtime();
+#ifdef USE_ACCUR
+                LaplacianFourthOrder(flab_zero, tf);
+#else
+                LaplacianSecondOrder(flab_zero, tf);
+#endif /* USE_ACCUR */
+                time[tid] += omp_get_wtime() - start[tid];
+            }
+        }
+        // compute average execution time across all threads
+        time_zero[i] = *max_element(std::begin(time), std::end(time));
         for (size_t t = 0; t < nthreads; ++t) time[t] = 0;
     }
 
