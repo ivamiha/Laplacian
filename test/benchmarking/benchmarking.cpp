@@ -1,4 +1,4 @@
-// File       : main.cpp    
+// File       : main.cpp
 // Created    : Tue Mar 16 2021  9:46:31 am CET (+0100)
 // Author     : Ivan Mihajlovic Milin
 // Description: Benchmarking suit for quantifying Laplacian kernel performance
@@ -8,6 +8,7 @@
 #include "Cubism/Grid/Cartesian.h"
 #include "Cubism/Mesh/StructuredUniform.h"
 #include "Cubism/Block/Field.h"
+#include "Cubism/IO/CartesianHDF.h"
 
 #include "LaplacianSecondOrder.h"
 #include "LaplacianFourthOrder.h"
@@ -37,11 +38,11 @@ using namespace Cubism;
  * @endrst
  * */
 template <typename T>
-void getRoofline(const std::vector<double> &time_zero, 
+void getRoofline(const std::vector<double> &time_zero,
                  std::vector<double> &performance_zero,
-                 const std::vector<double> &time_inft, 
-                 std::vector<double> &performance_inft, 
-                 std::vector<double> &roofCoords) 
+                 const std::vector<double> &time_inft,
+                 std::vector<double> &performance_inft,
+                 std::vector<double> &roofCoords)
 {
     // specify architecture-dependent limits (Intel Xeon E5-2670 v3)
     const float maxFreq = 3.2;      // maximum CPU frequency [GHz] 
@@ -49,14 +50,14 @@ void getRoofline(const std::vector<double> &time_zero,
     const float maxBand = 68.0;     // maximum memory bandwidth [GB/s]
     const size_t FMA = 2;           // fused multiply-add effect []
     // specify vector-extensions (SIMD) - architecture has AVX2 as limit
-    const size_t maxLanes = (256/8) / sizeof(T); 
+    const size_t maxLanes = (256/8) / sizeof(T);
 
     // specify benchmarked kernel-dependent parameters
 #ifdef USE_ACCUR
     const float opInt_zero = 0.180; // op. intensity no cache [Flops/Byte]
     const float opInt_inft = 1.438; // op. intensity infty cache [Flops/Byte]
     const size_t flopCell = 23;     // flops per processed cell [Flops/Cell]
-#else 
+#else
     const float opInt_zero = 0.175;
     const float opInt_inft = 0.875;
     const size_t flopCell = 14;
@@ -72,7 +73,7 @@ void getRoofline(const std::vector<double> &time_zero,
     // sort performance vectors in ascending order
     std::sort(performance_zero.begin(), performance_zero.end());
     std::sort(performance_inft.begin(), performance_inft.end());
-    
+
     // compute roofline ceilings
     const double ceil1 = maxFreq * FMA;
     const double ceil2 = maxFreq * FMA * maxLanes;
@@ -141,23 +142,27 @@ int main(int argc, char *argv[])
 
     // function for writing ICs utilizing input field (block) within grid
     auto fIC = [](FieldType &b) {
-        const DataType fac = 2 * M_PI;
         const Mesh &bm = *b.getState().mesh;
         // loop over cells in the block's mesh using cell index (ci)
         for (auto &ci : bm[EntityType::Cell]) {
             const PointType x = bm.getCoordsCell(ci);
-            b[ci] = std::cos(fac * x[0]) * std::cos(fac * x[1]) *
-                    std::sin(fac * x[2]);
-        } 
+            b[ci] = std::sin(2.0 * M_PI * x[0]) *
+                    std::cos(6.0 * M_PI * x[1]) *
+                    std::sin(4.0 * M_PI * x[2]);
+        }
     };
 
     // initialize solution storage grids by looping over blocks in the grid
     for (auto bf : sol_zero) {
-        fIC(*bf); 
+        fIC(*bf);
     }
     for (auto bf : sol_inft) {
-        fIC(*bf); 
+        fIC(*bf);
     }
+
+    // dump the ICs to HDF5 files using single-precision
+    IO::CartesianWriteHDF<float>("init_zero", "init", sol_zero, 0);
+    IO::CartesianWriteHDF<float>("init_inft", "init", sol_inft, 0);
 
     // define numerical parameters based on chosen discretization
 #ifdef USE_ACCUR
@@ -170,10 +175,6 @@ int main(int argc, char *argv[])
     FieldLab flab_zero, flab_inft;
     flab_zero.allocate(s, sol_zero[0].getIndexRange());
     flab_inft.allocate(s, sol_inft[0].getIndexRange());
-
-    // get block field index functors for periodic block accessing
-    auto findex_zero_ = sol_zero.getIndexFunctor(0);
-    auto findex_inft_ = sol_inft.getIndexFunctor(0);
 
     // warm up - call Laplacian kernel once
     for (auto f : sol_zero) {
@@ -197,9 +198,10 @@ int main(int argc, char *argv[])
     for (size_t i = 0; i < N; ++i)
     {
         // loop through blocks in the grid
-#pragma omp parallel num_threads(nthreads)
+#pragma omp parallel num_threads(nthreads) private(flab_inft)
         {
             const int tid = omp_get_thread_num();
+            flab_inft.allocate(s, sol_inft[0].getIndexRange());
 #pragma omp for nowait
             for (auto f : sol_inft)
             {
@@ -227,9 +229,10 @@ int main(int argc, char *argv[])
     for (size_t i = 0; i < N; ++i) 
     {
         // loop through blocks in the grid
-#pragma omp parallel num_threads(nthreads)
+#pragma omp parallel num_threads(nthreads) private(flab_zero)
         {
             const int tid = omp_get_thread_num();
+            flab_zero.allocate(s, sol_zero[0].getIndexRange());
 #pragma omp for nowait
             for (auto f : sol_zero)
             {
@@ -284,6 +287,10 @@ int main(int argc, char *argv[])
         results << roofCoords[i] << "\n";
     }
     results.close();
+
+    // dump solutions to HDF5 files using single-precision
+    IO::CartesianWriteHDF<float>("sol_zero", "sol", tmp_zero, 0);
+    IO::CartesianWriteHDF<float>("sol_inft", "sol", tmp_inft, 0);
 
     return 0;
 }
