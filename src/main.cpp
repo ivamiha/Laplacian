@@ -60,16 +60,16 @@ int main(int argc, char *argv[])
     SGrid vtmp(nblocks, block_cells, begin, end);   // temporary field for v
 
     // define simulation & Gray-Scott variables
-    const double time = 10000.0;     // simulation duration [s]
-    const double F = 0.04;          // feed-rate (permeability to U) [m^2]
-    const double k = 0.06;          // feed-rate minus permeability to V [m^2]
+    const double time = 8000.0;     // simulation duration [s]
+    const double F = 0.024;         // feed-rate (permeability to U) [m^2]
+    const double k = 0.056;         // feed-rate minus permeability to V [m^2]
     const double Du = 0.00002;      // diffusivity of U species [m^2/s]
     const double Dv = 0.00001;      // diffusivity of V species [m^2/s]
     const double Fo = 0.8;          // mass Fourier number []
 
 #ifdef USE_DUMP
     // solution dump frequency
-    const int dump = 100;           // dump sol. every ``dump`` timesteps []
+    const int dump = 50;           // dump sol. every ``dump`` timesteps []
 #endif /* USE_DUMP */
 
     Timer timer;
@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
 
     // create Neumann BC object and apply desired flux at all boundaries
     BCVector bcv;
-    const double flux = -2.0;
+    const double flux = 0.0;
     bcv.push_back(new BC(0, 0, flux));
     bcv.push_back(new BC(0, 1, flux));
     bcv.push_back(new BC(1, 0, flux));
