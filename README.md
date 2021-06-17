@@ -57,6 +57,7 @@ build directory.
 ## Link to final simulation
 
 [Youtube video of final simulation](https://youtu.be/WRRn_hadOUI)
+
 [Youtube video of final simulation with clipped color bar](https://youtu.be/nQSPNC6QppI)
 
 ## Project checklist 
