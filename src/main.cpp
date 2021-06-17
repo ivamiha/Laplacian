@@ -13,11 +13,12 @@
 
 #include "LaplacianSecondOrder.h"
 #include "LaplacianFourthOrder.h"
+#include "Neumann.h"
 
 // enable fourth-order CDS, default is second-order CDS
 // #define USE_ACCUR
 // enable solution dumping
-// #define USE_DUMP
+#define USE_DUMP
 
 #include <cstdio>
 #include <omp.h>
@@ -39,6 +40,10 @@ int main(int argc, char *argv[])
     using FieldLab = Block::FieldLab<typename FieldType::FieldType>;
     using Stencil = typename FieldLab::StencilType;
 
+    // identifiers for creating & managing boundary conditions
+    using BCVector = typename FieldType::BCVector;
+    using BC = BC::Neumann<FieldLab>;
+
     // define some critical simulation parameters
     const MIndex nblocks((argc == 2) ? std::atoi(argv[1]) : 8);
     const MIndex block_cells(32);
@@ -55,7 +60,7 @@ int main(int argc, char *argv[])
     SGrid vtmp(nblocks, block_cells, begin, end);   // temporary field for v
 
     // define simulation & Gray-Scott variables
-    const double time = 3500.0;     // simulation duration [s]
+    const double time = 10000.0;     // simulation duration [s]
     const double F = 0.04;          // feed-rate (permeability to U) [m^2]
     const double k = 0.06;          // feed-rate minus permeability to V [m^2]
     const double Du = 0.00002;      // diffusivity of U species [m^2/s]
@@ -64,42 +69,79 @@ int main(int argc, char *argv[])
 
 #ifdef USE_DUMP
     // solution dump frequency
-    const int dump = 500;           // dump sol. every ``dump`` timesteps []
+    const int dump = 100;           // dump sol. every ``dump`` timesteps []
 #endif /* USE_DUMP */
 
     Timer timer;
 
-    // function for writing ICs into input block field within grid (Trefethen)
-    auto IC = [](FieldType &bf, const size_t mode) {
+    // function for writing ICs into input block field within grid (2D)
+    auto IC_2D = [](FieldType &bf, const size_t mode) {
         const Mesh &bm = *bf.getState().mesh;
         if (mode == 0) {    //  ICs for species U
             for (auto &ci : bm[EntityType::Cell]) {
                 const PointType x = bm.getCoordsCell(ci);
                 bf[ci] = 1 - std::exp(-80 * (pow(x[0] + 0.05, 2)
-                                           + pow(x[1] + 0.02, 2)));
+                                           + pow(x[1] + 0.05, 2)));
             }
         } else {           // ICs for species V
             for (auto &ci : bm[EntityType::Cell]) {
                 const PointType x = bm.getCoordsCell(ci);
                 bf[ci] = std::exp(-80 * (pow(x[0] - 0.05, 2)
-                                       + pow(x[1] - 0.02, 2)));
+                                       + pow(x[1] - 0.05, 2)));
+            }
+        }
+    };
+
+    // function for writing ICs into input block field within grid (3D)
+    auto IC_3D = [](FieldType &bf, const size_t mode) {
+        const Mesh &bm = *bf.getState().mesh;
+        if (mode == 0) {    // ICs for species U
+            for (auto &ci : bm[EntityType::Cell]) {
+                const PointType x = bm.getCoordsCell(ci);
+                bf[ci] = 1 - std::exp(-80 * (pow(x[0] + 0.05, 2)
+                                           + pow(x[1] + 0.05, 2)
+                                           + pow(x[2] + 0.05, 2)));
+            }
+        } else {            // ICs for species V
+            for (auto &ci : bm[EntityType::Cell]) {
+                const PointType x = bm.getCoordsCell(ci);
+                bf[ci] = std::exp(-80 * (pow(x[0] - 0.05, 2)
+                                       + pow(x[1] - 0.05, 2)
+                                       + pow(x[2] - 0.05, 2)));
             }
         }
     };
 
     // initialize grid using IC function for u field
     for (auto bf : u) {
-        IC(*bf, 0);
+        IC_3D(*bf, 0);
     }
     // initialize grid using IC function for v field
     for (auto bf : v) {
-        IC(*bf, 1);
+        IC_3D(*bf, 1);
     }
+    // variables to use for naming dumped files
+    int i = 0;
+    std::string nameu = "solu";
+    std::string namev = "solv";
     // dump the ICs into HDF5 files using single-precision
     timer.start();
-    IO::CartesianWriteHDF<float>("init_u", "U", u, 0);
-    IO::CartesianWriteHDF<float>("init_v", "V", v, 0);
+    std::string num = std::to_string(i);
+    std::string filenameu = nameu + num;
+    std::string filenamev = namev + num;
+    IO::CartesianWriteHDF<float>(filenameu, "U", u, 0);
+    IO::CartesianWriteHDF<float>(filenamev, "V", v, 0);
     double tw = timer.stop();
+
+    // create Neumann BC object and apply desired flux at all boundaries
+    BCVector bcv;
+    const double flux = -2.0;
+    bcv.push_back(new BC(0, 0, flux));
+    bcv.push_back(new BC(0, 1, flux));
+    bcv.push_back(new BC(1, 0, flux));
+    bcv.push_back(new BC(1, 1, flux));
+    bcv.push_back(new BC(2, 0, flux));
+    bcv.push_back(new BC(2, 1, flux));
 
     // define stencil and allocate FieldLabs
     FieldLab ulab, vlab;
@@ -170,8 +212,12 @@ int main(int argc, char *argv[])
 #ifdef USE_DUMP
         if (j % dump == 0) {
             timer.start();
-            IO::CartesianWriteHDF<float>("solu", "sol U", u, 0);
-            IO::CartesianWriteHDF<float>("solv", "sol V", v, 0);
+            ++i;
+            num = std::to_string(i);
+            filenameu = nameu + num;
+            filenamev = namev + num;
+            IO::CartesianWriteHDF<float>(filenameu, "U", u, t);
+            IO::CartesianWriteHDF<float>(filenamev, "V", v, t);
             tw += timer.stop();
         }
 #endif /* USE_DUMP */
@@ -179,14 +225,28 @@ int main(int argc, char *argv[])
 
     // dump solutions into HDF5 files using single-precision
     timer.start();
-    IO::CartesianWriteHDF<float>("solu", "sol U", u, 0);
-    IO::CartesianWriteHDF<float>("solv", "sol V", v, 0);
+    ++i;
+    num = std::to_string(i);
+    filenameu = nameu + num;
+    filenamev = namev + num;
+    IO::CartesianWriteHDF<float>(filenameu, "U", u, time);
+    IO::CartesianWriteHDF<float>(filenamev, "V", v, time);
     tw += timer.stop();
 
-    // compute number of cells and cell throughput -- communicate them
+    // delete all manually allocated BC vectors
+    for (auto bc : bcv) {
+        delete bc;
+    }
 
-    printf("ncells:\t\t%f\nwrite_time:\t%f [s]\nsim_time:\t%f [s]\n",
-            static_cast<int>(nblocks.prod()) * std::pow(32, 3),
+    // compute number of cells and cell throughput -- communicate them
+    double ncells = static_cast<int>(nblocks.prod()) * std::pow(32, 3);
+    double tavg = ts / j;
+    double throughput_avg = ncells / tavg;
+
+    printf("ncells:\t\t\t%f\navg_cell_throughput:\t%E [cells/sec]\n",
+            ncells,
+            throughput_avg);
+    printf("write_sim:\t\t%f [s]\nsim_time:\t\t%f [s]\n",
             tw,
             ts);
 
